@@ -1,0 +1,393 @@
+{
+  "summary": {
+    "total_resources": 32,
+    "compliant_resources": 0,
+    "partial_compliant_resources": 3,
+    "non_compliant_resources": 29,
+    "compliance_rate_percent": 0.0,
+    "partial_compliance_rate_percent": 9.4,
+    "naming_pattern": "multicines-<servicio>-<ambiente>-<recurso>",
+    "project_name": "multicines",
+    "compliance_by_resource_type": {
+      "vpc": {
+        "total": 3,
+        "compliant": 0,
+        "partial": 0,
+        "non_compliant": 3
+      },
+      "subnet": {
+        "total": 13,
+        "compliant": 0,
+        "partial": 0,
+        "non_compliant": 13
+      },
+      "security-group": {
+        "total": 8,
+        "compliant": 0,
+        "partial": 0,
+        "non_compliant": 8
+      },
+      "iam-role": {
+        "total": 4,
+        "compliant": 0,
+        "partial": 2,
+        "non_compliant": 2
+      },
+      "ecr-repository": {
+        "total": 1,
+        "compliant": 0,
+        "partial": 0,
+        "non_compliant": 1
+      },
+      "log-group": {
+        "total": 2,
+        "compliant": 0,
+        "partial": 0,
+        "non_compliant": 2
+      },
+      "ecs-cluster": {
+        "total": 1,
+        "compliant": 0,
+        "partial": 1,
+        "non_compliant": 0
+      }
+    },
+    "issues_frequency": {
+      "Recurso sin nombre (Name tag vacío o no definido)": 7,
+      "No sigue el patrón de nomenclatura estándar": 22,
+      "Comienza con nombre de proyecto pero no sigue patrón completo": 3
+    }
+  },
+  "compliant_resources": [],
+  "partial_compliant_resources": [
+    {
+      "resource_type": "ecs-cluster",
+      "resource_id": "arn:aws:ecs:us-east-1:340271092920:cluster/multicines-cluster",
+      "current_name": "multicines-cluster",
+      "identifier": "arn:aws:ecs:us-east-1:340271092920:cluster/multicines-cluster",
+      "compliance_status": "partial",
+      "expected_pattern": "multicines-<servicio>-<ambiente>-<recurso>",
+      "issue": "Comienza con nombre de proyecto pero no sigue patrón completo",
+      "suggestion": "multicines-integrator-dev-ecs-cluster"
+    },
+    {
+      "resource_type": "iam-role",
+      "resource_id": "arn:aws:iam::340271092920:role/multicines-ecs-task-role",
+      "current_name": "multicines-ecs-task-role",
+      "identifier": "arn:aws:iam::340271092920:role/multicines-ecs-task-role",
+      "compliance_status": "partial",
+      "expected_pattern": "multicines-<servicio>-<ambiente>-<recurso>",
+      "issue": "Comienza con nombre de proyecto pero no sigue patrón completo",
+      "suggestion": "multicines-integrator-dev-iam-role"
+    },
+    {
+      "resource_type": "iam-role",
+      "resource_id": "arn:aws:iam::340271092920:role/multicines-github-actions-role",
+      "current_name": "multicines-github-actions-role",
+      "identifier": "arn:aws:iam::340271092920:role/multicines-github-actions-role",
+      "compliance_status": "partial",
+      "expected_pattern": "multicines-<servicio>-<ambiente>-<recurso>",
+      "issue": "Comienza con nombre de proyecto pero no sigue patrón completo",
+      "suggestion": "multicines-integrator-dev-iam-role"
+    }
+  ],
+  "non_compliant_resources": [
+    {
+      "resource_type": "vpc",
+      "resource_id": "vpc-059518f8ed756e6e6",
+      "current_name": "",
+      "identifier": "vpc-059518f8ed756e6e6",
+      "compliance_status": "no_name",
+      "expected_pattern": "multicines-<servicio>-<ambiente>-<recurso>",
+      "issue": "Recurso sin nombre (Name tag vacío o no definido)",
+      "suggestion": "multicines-integrator-dev-vpc"
+    },
+    {
+      "resource_type": "vpc",
+      "resource_id": "vpc-0a5ebea8e7bee9ed5",
+      "current_name": "dev-vpc",
+      "identifier": "vpc-0a5ebea8e7bee9ed5",
+      "compliance_status": "non_compliant",
+      "expected_pattern": "multicines-<servicio>-<ambiente>-<recurso>",
+      "issue": "No sigue el patrón de nomenclatura estándar",
+      "suggestion": "multicines-integrator-dev-vpc"
+    },
+    {
+      "resource_type": "vpc",
+      "resource_id": "vpc-0860a0d2cf4df6140",
+      "current_name": "prod-vpc-multicines",
+      "identifier": "vpc-0860a0d2cf4df6140",
+      "compliance_status": "non_compliant",
+      "expected_pattern": "multicines-<servicio>-<ambiente>-<recurso>",
+      "issue": "No sigue el patrón de nomenclatura estándar",
+      "suggestion": "multicines-integrator-dev-vpc"
+    },
+    {
+      "resource_type": "subnet",
+      "resource_id": "subnet-02193c97ceb6ec25d",
+      "current_name": "dev-subnet-public-az1b",
+      "identifier": "subnet-02193c97ceb6ec25d",
+      "compliance_status": "non_compliant",
+      "expected_pattern": "multicines-<servicio>-<ambiente>-<recurso>",
+      "issue": "No sigue el patrón de nomenclatura estándar",
+      "suggestion": "multicines-integrator-dev-subnet"
+    },
+    {
+      "resource_type": "subnet",
+      "resource_id": "subnet-009351a665c581c1c",
+      "current_name": "",
+      "identifier": "subnet-009351a665c581c1c",
+      "compliance_status": "no_name",
+      "expected_pattern": "multicines-<servicio>-<ambiente>-<recurso>",
+      "issue": "Recurso sin nombre (Name tag vacío o no definido)",
+      "suggestion": "multicines-integrator-dev-subnet"
+    },
+    {
+      "resource_type": "subnet",
+      "resource_id": "subnet-0df840e572cc24bb7",
+      "current_name": "",
+      "identifier": "subnet-0df840e572cc24bb7",
+      "compliance_status": "no_name",
+      "expected_pattern": "multicines-<servicio>-<ambiente>-<recurso>",
+      "issue": "Recurso sin nombre (Name tag vacío o no definido)",
+      "suggestion": "multicines-integrator-dev-subnet"
+    },
+    {
+      "resource_type": "subnet",
+      "resource_id": "subnet-04e4cd18763fd6f84",
+      "current_name": "prod-subnet-public-1a",
+      "identifier": "subnet-04e4cd18763fd6f84",
+      "compliance_status": "non_compliant",
+      "expected_pattern": "multicines-<servicio>-<ambiente>-<recurso>",
+      "issue": "No sigue el patrón de nomenclatura estándar",
+      "suggestion": "multicines-integrator-dev-subnet"
+    },
+    {
+      "resource_type": "subnet",
+      "resource_id": "subnet-0c92479c2831f04eb",
+      "current_name": "dev-subnet-public-az1a",
+      "identifier": "subnet-0c92479c2831f04eb",
+      "compliance_status": "non_compliant",
+      "expected_pattern": "multicines-<servicio>-<ambiente>-<recurso>",
+      "issue": "No sigue el patrón de nomenclatura estándar",
+      "suggestion": "multicines-integrator-dev-subnet"
+    },
+    {
+      "resource_type": "subnet",
+      "resource_id": "subnet-02f9e1f5fa5016c8a",
+      "current_name": "",
+      "identifier": "subnet-02f9e1f5fa5016c8a",
+      "compliance_status": "no_name",
+      "expected_pattern": "multicines-<servicio>-<ambiente>-<recurso>",
+      "issue": "Recurso sin nombre (Name tag vacío o no definido)",
+      "suggestion": "multicines-integrator-dev-subnet"
+    },
+    {
+      "resource_type": "subnet",
+      "resource_id": "subnet-0d55ebfe5adbd4e81",
+      "current_name": "prod-subnet-private-1a",
+      "identifier": "subnet-0d55ebfe5adbd4e81",
+      "compliance_status": "non_compliant",
+      "expected_pattern": "multicines-<servicio>-<ambiente>-<recurso>",
+      "issue": "No sigue el patrón de nomenclatura estándar",
+      "suggestion": "multicines-integrator-dev-subnet"
+    },
+    {
+      "resource_type": "subnet",
+      "resource_id": "subnet-01ad7d36398f314ce",
+      "current_name": "",
+      "identifier": "subnet-01ad7d36398f314ce",
+      "compliance_status": "no_name",
+      "expected_pattern": "multicines-<servicio>-<ambiente>-<recurso>",
+      "issue": "Recurso sin nombre (Name tag vacío o no definido)",
+      "suggestion": "multicines-integrator-dev-subnet"
+    },
+    {
+      "resource_type": "subnet",
+      "resource_id": "subnet-0eeec60453f7f9492",
+      "current_name": "dev-subnet-private-az1a",
+      "identifier": "subnet-0eeec60453f7f9492",
+      "compliance_status": "non_compliant",
+      "expected_pattern": "multicines-<servicio>-<ambiente>-<recurso>",
+      "issue": "No sigue el patrón de nomenclatura estándar",
+      "suggestion": "multicines-integrator-dev-subnet"
+    },
+    {
+      "resource_type": "subnet",
+      "resource_id": "subnet-0736e3143f01c9de1",
+      "current_name": "",
+      "identifier": "subnet-0736e3143f01c9de1",
+      "compliance_status": "no_name",
+      "expected_pattern": "multicines-<servicio>-<ambiente>-<recurso>",
+      "issue": "Recurso sin nombre (Name tag vacío o no definido)",
+      "suggestion": "multicines-integrator-dev-subnet"
+    },
+    {
+      "resource_type": "subnet",
+      "resource_id": "subnet-0ec80f2eab7386561",
+      "current_name": "",
+      "identifier": "subnet-0ec80f2eab7386561",
+      "compliance_status": "no_name",
+      "expected_pattern": "multicines-<servicio>-<ambiente>-<recurso>",
+      "issue": "Recurso sin nombre (Name tag vacío o no definido)",
+      "suggestion": "multicines-integrator-dev-subnet"
+    },
+    {
+      "resource_type": "subnet",
+      "resource_id": "subnet-04f8ac3335c426f57",
+      "current_name": "prod-subnet-private-1b",
+      "identifier": "subnet-04f8ac3335c426f57",
+      "compliance_status": "non_compliant",
+      "expected_pattern": "multicines-<servicio>-<ambiente>-<recurso>",
+      "issue": "No sigue el patrón de nomenclatura estándar",
+      "suggestion": "multicines-integrator-dev-subnet"
+    },
+    {
+      "resource_type": "subnet",
+      "resource_id": "subnet-05c92a4889326c68e",
+      "current_name": "prod-subnet-public-1b",
+      "identifier": "subnet-05c92a4889326c68e",
+      "compliance_status": "non_compliant",
+      "expected_pattern": "multicines-<servicio>-<ambiente>-<recurso>",
+      "issue": "No sigue el patrón de nomenclatura estándar",
+      "suggestion": "multicines-integrator-dev-subnet"
+    },
+    {
+      "resource_type": "security-group",
+      "resource_id": "sg-04f21c4c1d065fe60",
+      "current_name": "prod-sg-alb",
+      "identifier": "sg-04f21c4c1d065fe60",
+      "compliance_status": "non_compliant",
+      "expected_pattern": "multicines-<servicio>-<ambiente>-<recurso>",
+      "issue": "No sigue el patrón de nomenclatura estándar",
+      "suggestion": "multicines-integrator-dev-security-group"
+    },
+    {
+      "resource_type": "security-group",
+      "resource_id": "sg-0bd705b1fd4514783",
+      "current_name": "prod-sg-vpn",
+      "identifier": "sg-0bd705b1fd4514783",
+      "compliance_status": "non_compliant",
+      "expected_pattern": "multicines-<servicio>-<ambiente>-<recurso>",
+      "issue": "No sigue el patrón de nomenclatura estándar",
+      "suggestion": "multicines-integrator-dev-security-group"
+    },
+    {
+      "resource_type": "security-group",
+      "resource_id": "sg-0b19eae99c365c720",
+      "current_name": "default",
+      "identifier": "sg-0b19eae99c365c720",
+      "compliance_status": "non_compliant",
+      "expected_pattern": "multicines-<servicio>-<ambiente>-<recurso>",
+      "issue": "No sigue el patrón de nomenclatura estándar",
+      "suggestion": "multicines-integrator-dev-security-group"
+    },
+    {
+      "resource_type": "security-group",
+      "resource_id": "sg-01c619444bab0b8d3",
+      "current_name": "dev-sg-ecs",
+      "identifier": "sg-01c619444bab0b8d3",
+      "compliance_status": "non_compliant",
+      "expected_pattern": "multicines-<servicio>-<ambiente>-<recurso>",
+      "issue": "No sigue el patrón de nomenclatura estándar",
+      "suggestion": "multicines-integrator-dev-security-group"
+    },
+    {
+      "resource_type": "security-group",
+      "resource_id": "sg-0b78c14cd02b2f6e1",
+      "current_name": "prod-sg-ecs",
+      "identifier": "sg-0b78c14cd02b2f6e1",
+      "compliance_status": "non_compliant",
+      "expected_pattern": "multicines-<servicio>-<ambiente>-<recurso>",
+      "issue": "No sigue el patrón de nomenclatura estándar",
+      "suggestion": "multicines-integrator-dev-security-group"
+    },
+    {
+      "resource_type": "security-group",
+      "resource_id": "sg-0fdf0c744482646ae",
+      "current_name": "dev-sg-alb",
+      "identifier": "sg-0fdf0c744482646ae",
+      "compliance_status": "non_compliant",
+      "expected_pattern": "multicines-<servicio>-<ambiente>-<recurso>",
+      "issue": "No sigue el patrón de nomenclatura estándar",
+      "suggestion": "multicines-integrator-dev-security-group"
+    },
+    {
+      "resource_type": "security-group",
+      "resource_id": "sg-0af4ff8abd9aec744",
+      "current_name": "default",
+      "identifier": "sg-0af4ff8abd9aec744",
+      "compliance_status": "non_compliant",
+      "expected_pattern": "multicines-<servicio>-<ambiente>-<recurso>",
+      "issue": "No sigue el patrón de nomenclatura estándar",
+      "suggestion": "multicines-integrator-dev-security-group"
+    },
+    {
+      "resource_type": "security-group",
+      "resource_id": "sg-0adf5805a777a592c",
+      "current_name": "default",
+      "identifier": "sg-0adf5805a777a592c",
+      "compliance_status": "non_compliant",
+      "expected_pattern": "multicines-<servicio>-<ambiente>-<recurso>",
+      "issue": "No sigue el patrón de nomenclatura estándar",
+      "suggestion": "multicines-integrator-dev-security-group"
+    },
+    {
+      "resource_type": "iam-role",
+      "resource_id": "arn:aws:iam::340271092920:role/ecsTaskExecutionRole",
+      "current_name": "ecsTaskExecutionRole",
+      "identifier": "arn:aws:iam::340271092920:role/ecsTaskExecutionRole",
+      "compliance_status": "non_compliant",
+      "expected_pattern": "multicines-<servicio>-<ambiente>-<recurso>",
+      "issue": "No sigue el patrón de nomenclatura estándar",
+      "suggestion": "multicines-integrator-dev-iam-role"
+    },
+    {
+      "resource_type": "iam-role",
+      "resource_id": "arn:aws:iam::340271092920:role/OrganizationAccountAccessRole",
+      "current_name": "OrganizationAccountAccessRole",
+      "identifier": "arn:aws:iam::340271092920:role/OrganizationAccountAccessRole",
+      "compliance_status": "non_compliant",
+      "expected_pattern": "multicines-<servicio>-<ambiente>-<recurso>",
+      "issue": "No sigue el patrón de nomenclatura estándar",
+      "suggestion": "multicines-integrator-dev-iam-role"
+    },
+    {
+      "resource_type": "ecr-repository",
+      "resource_id": "arn:aws:ecr:us-east-1:340271092920:repository/multicines/integration-service",
+      "current_name": "multicines/integration-service",
+      "identifier": "arn:aws:ecr:us-east-1:340271092920:repository/multicines/integration-service",
+      "compliance_status": "non_compliant",
+      "expected_pattern": "multicines-<servicio>-<ambiente>-<recurso>",
+      "issue": "No sigue el patrón de nomenclatura estándar",
+      "suggestion": "multicines-integrator-dev-ecr-repository"
+    },
+    {
+      "resource_type": "log-group",
+      "resource_id": "arn:aws:logs:us-east-1:340271092920:log-group:/ecs/dev-multicines-integration:*",
+      "current_name": "/ecs/dev-multicines-integration",
+      "identifier": "arn:aws:logs:us-east-1:340271092920:log-group:/ecs/dev-multicines-integration:*",
+      "compliance_status": "non_compliant",
+      "expected_pattern": "multicines-<servicio>-<ambiente>-<recurso>",
+      "issue": "No sigue el patrón de nomenclatura estándar",
+      "suggestion": "multicines-integrator-dev-log-group"
+    },
+    {
+      "resource_type": "log-group",
+      "resource_id": "arn:aws:logs:us-east-1:340271092920:log-group:/ecs/prod-multicines-integration:*",
+      "current_name": "/ecs/prod-multicines-integration",
+      "identifier": "arn:aws:logs:us-east-1:340271092920:log-group:/ecs/prod-multicines-integration:*",
+      "compliance_status": "non_compliant",
+      "expected_pattern": "multicines-<servicio>-<ambiente>-<recurso>",
+      "issue": "No sigue el patrón de nomenclatura estándar",
+      "suggestion": "multicines-integrator-dev-log-group"
+    }
+  ],
+  "metadata": {
+    "timestamp": "2026-06-24T16:44:35Z",
+    "region": "us-east-1",
+    "account": "340271092920",
+    "naming_pattern": "{proyecto}-{servicio}-{ambiente}-{recurso}",
+    "project_name": "multicines"
+  }
+}

@@ -1,0 +1,330 @@
+# =============================================================================
+# CI/CD Pipeline - Multicines Integration Service
+# =============================================================================
+# Builds Docker image, pushes to ECR, and deploys to ECS (dev + prod).
+# Uses OIDC authentication with AWS via multicines-github-actions-role.
+# Prod deployment requires manual approval via environment protection.
+# Includes automatic rollback on deployment failure.
+# =============================================================================
+
+name: Deploy Integration Service
+
+on:
+  push:
+    branches:
+      - main
+
+env:
+  AWS_REGION: us-east-1
+  AWS_ACCOUNT_ID: "340271092920"
+  ECR_REPOSITORY: multicines/integration-service
+  ECS_CLUSTER: multicines-cluster
+  CONTAINER_NAME: api-integration-service
+  CONTAINER_PORT: 8095
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  # ===========================================================================
+  # Job 1: Build and Push Docker Image to ECR
+  # ===========================================================================
+  build-and-push:
+    name: Build & Push to ECR
+    runs-on: ubuntu-latest
+    outputs:
+      image_tag: ${{ steps.meta.outputs.image_tag }}
+      image_uri: ${{ steps.meta.outputs.image_uri }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::340271092920:role/multicines-github-actions-role
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Generate image metadata
+        id: meta
+        run: |
+          IMAGE_TAG="${GITHUB_SHA::8}-$(date +%Y%m%d%H%M%S)"
+          IMAGE_URI="${{ env.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPOSITORY }}:${IMAGE_TAG}"
+          echo "image_tag=${IMAGE_TAG}" >> $GITHUB_OUTPUT
+          echo "image_uri=${IMAGE_URI}" >> $GITHUB_OUTPUT
+
+      - name: Build Docker image
+        run: |
+          docker build \
+            -t ${{ steps.meta.outputs.image_uri }} \
+            -f Dockerfile \
+            .
+
+      - name: Push Docker image to ECR
+        run: |
+          docker push ${{ steps.meta.outputs.image_uri }}
+
+      - name: Verify image in ECR
+        run: |
+          aws ecr describe-images \
+            --repository-name ${{ env.ECR_REPOSITORY }} \
+            --image-ids imageTag=${{ steps.meta.outputs.image_tag }} \
+            --region ${{ env.AWS_REGION }}
+
+  # ===========================================================================
+  # Job 2: Deploy to Development Environment
+  # ===========================================================================
+  deploy-dev:
+    name: Deploy to Dev
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    environment: development
+
+    steps:
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::340271092920:role/multicines-github-actions-role
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Get current task definition
+        id: current-td
+        run: |
+          CURRENT_TD=$(aws ecs describe-services \
+            --cluster ${{ env.ECS_CLUSTER }} \
+            --services multicines-dev-api \
+            --query 'services[0].taskDefinition' \
+            --output text)
+          echo "task_definition=${CURRENT_TD}" >> $GITHUB_OUTPUT
+
+      - name: Download current task definition
+        id: download-td
+        run: |
+          aws ecs describe-task-definition \
+            --task-definition ${{ steps.current-td.outputs.task_definition }} \
+            --query 'taskDefinition' \
+            --output json > current-task-def.json
+
+      - name: Update task definition with new image
+        id: new-td
+        run: |
+          IMAGE_URI="${{ needs.build-and-push.outputs.image_uri }}"
+          
+          # Update the container image in the task definition
+          jq --arg IMAGE "$IMAGE_URI" --arg CONTAINER "${{ env.CONTAINER_NAME }}" \
+            '.containerDefinitions |= map(if .name == $CONTAINER then .image = $IMAGE else . end)' \
+            current-task-def.json | \
+          jq 'del(.taskDefinitionArn, .revision, .status, .requiresAttributes, .compatibilities, .registeredAt, .registeredBy)' \
+            > new-task-def.json
+          
+          # Register the new task definition
+          NEW_TD_ARN=$(aws ecs register-task-definition \
+            --cli-input-json file://new-task-def.json \
+            --query 'taskDefinition.taskDefinitionArn' \
+            --output text)
+          echo "task_definition_arn=${NEW_TD_ARN}" >> $GITHUB_OUTPUT
+
+      - name: Deploy to ECS Dev
+        id: deploy
+        run: |
+          aws ecs update-service \
+            --cluster ${{ env.ECS_CLUSTER }} \
+            --service multicines-dev-api \
+            --task-definition ${{ steps.new-td.outputs.task_definition_arn }} \
+            --force-new-deployment
+
+      - name: Wait for service stability
+        id: wait
+        run: |
+          echo "Waiting for ECS service to stabilize..."
+          aws ecs wait services-stable \
+            --cluster ${{ env.ECS_CLUSTER }} \
+            --services multicines-dev-api \
+            --cli-read-timeout 600 || {
+            echo "::error::Service failed to stabilize"
+            echo "stable=false" >> $GITHUB_OUTPUT
+            exit 1
+          }
+          echo "stable=true" >> $GITHUB_OUTPUT
+
+      - name: Rollback on failure
+        if: failure() && steps.deploy.outcome == 'success'
+        run: |
+          echo "::warning::Deployment failed, rolling back to previous task definition..."
+          aws ecs update-service \
+            --cluster ${{ env.ECS_CLUSTER }} \
+            --service multicines-dev-api \
+            --task-definition ${{ steps.current-td.outputs.task_definition }} \
+            --force-new-deployment
+          
+          echo "Waiting for rollback to stabilize..."
+          aws ecs wait services-stable \
+            --cluster ${{ env.ECS_CLUSTER }} \
+            --services multicines-dev-api \
+            --cli-read-timeout 600
+          echo "::error::Rolled back to previous task definition: ${{ steps.current-td.outputs.task_definition }}"
+
+      - name: Verify deployment health check (Dev)
+        if: success()
+        run: |
+          echo "Verifying deployment health..."
+          
+          # Get the ALB DNS or task public IP for health check
+          TASK_ARNS=$(aws ecs list-tasks \
+            --cluster ${{ env.ECS_CLUSTER }} \
+            --service-name multicines-dev-api \
+            --desired-status RUNNING \
+            --query 'taskArns[0]' \
+            --output text)
+          
+          if [ "$TASK_ARNS" != "None" ] && [ -n "$TASK_ARNS" ]; then
+            echo "Tasks running successfully: ${TASK_ARNS}"
+            
+            # Verify task health via ECS describe
+            HEALTH=$(aws ecs describe-tasks \
+              --cluster ${{ env.ECS_CLUSTER }} \
+              --tasks $TASK_ARNS \
+              --query 'tasks[0].lastStatus' \
+              --output text)
+            echo "Task status: ${HEALTH}"
+            
+            if [ "$HEALTH" = "RUNNING" ]; then
+              echo "✅ Dev deployment health check passed"
+            else
+              echo "::warning::Task is not in RUNNING state: ${HEALTH}"
+            fi
+          else
+            echo "::warning::No running tasks found for health verification"
+          fi
+
+  # ===========================================================================
+  # Job 3: Deploy to Production Environment (requires manual approval)
+  # ===========================================================================
+  deploy-prod:
+    name: Deploy to Prod
+    needs: [build-and-push, deploy-dev]
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::340271092920:role/multicines-github-actions-role
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Get current task definition
+        id: current-td
+        run: |
+          CURRENT_TD=$(aws ecs describe-services \
+            --cluster ${{ env.ECS_CLUSTER }} \
+            --services multicines-prod-api \
+            --query 'services[0].taskDefinition' \
+            --output text)
+          echo "task_definition=${CURRENT_TD}" >> $GITHUB_OUTPUT
+
+      - name: Download current task definition
+        id: download-td
+        run: |
+          aws ecs describe-task-definition \
+            --task-definition ${{ steps.current-td.outputs.task_definition }} \
+            --query 'taskDefinition' \
+            --output json > current-task-def.json
+
+      - name: Update task definition with new image
+        id: new-td
+        run: |
+          IMAGE_URI="${{ needs.build-and-push.outputs.image_uri }}"
+          
+          # Update the container image in the task definition
+          jq --arg IMAGE "$IMAGE_URI" --arg CONTAINER "${{ env.CONTAINER_NAME }}" \
+            '.containerDefinitions |= map(if .name == $CONTAINER then .image = $IMAGE else . end)' \
+            current-task-def.json | \
+          jq 'del(.taskDefinitionArn, .revision, .status, .requiresAttributes, .compatibilities, .registeredAt, .registeredBy)' \
+            > new-task-def.json
+          
+          # Register the new task definition
+          NEW_TD_ARN=$(aws ecs register-task-definition \
+            --cli-input-json file://new-task-def.json \
+            --query 'taskDefinition.taskDefinitionArn' \
+            --output text)
+          echo "task_definition_arn=${NEW_TD_ARN}" >> $GITHUB_OUTPUT
+
+      - name: Deploy to ECS Prod
+        id: deploy
+        run: |
+          aws ecs update-service \
+            --cluster ${{ env.ECS_CLUSTER }} \
+            --service multicines-prod-api \
+            --task-definition ${{ steps.new-td.outputs.task_definition_arn }} \
+            --force-new-deployment
+
+      - name: Wait for service stability
+        id: wait
+        run: |
+          echo "Waiting for ECS service to stabilize..."
+          aws ecs wait services-stable \
+            --cluster ${{ env.ECS_CLUSTER }} \
+            --services multicines-prod-api \
+            --cli-read-timeout 600 || {
+            echo "::error::Service failed to stabilize"
+            echo "stable=false" >> $GITHUB_OUTPUT
+            exit 1
+          }
+          echo "stable=true" >> $GITHUB_OUTPUT
+
+      - name: Rollback on failure
+        if: failure() && steps.deploy.outcome == 'success'
+        run: |
+          echo "::warning::Deployment failed, rolling back to previous task definition..."
+          aws ecs update-service \
+            --cluster ${{ env.ECS_CLUSTER }} \
+            --service multicines-prod-api \
+            --task-definition ${{ steps.current-td.outputs.task_definition }} \
+            --force-new-deployment
+          
+          echo "Waiting for rollback to stabilize..."
+          aws ecs wait services-stable \
+            --cluster ${{ env.ECS_CLUSTER }} \
+            --services multicines-prod-api \
+            --cli-read-timeout 600
+          echo "::error::Rolled back to previous task definition: ${{ steps.current-td.outputs.task_definition }}"
+
+      - name: Verify deployment health check (Prod)
+        if: success()
+        run: |
+          echo "Verifying production deployment health..."
+          
+          # Get running tasks
+          TASK_ARNS=$(aws ecs list-tasks \
+            --cluster ${{ env.ECS_CLUSTER }} \
+            --service-name multicines-prod-api \
+            --desired-status RUNNING \
+            --query 'taskArns' \
+            --output json)
+          
+          TASK_COUNT=$(echo "$TASK_ARNS" | jq 'length')
+          echo "Running tasks: ${TASK_COUNT}"
+          
+          if [ "$TASK_COUNT" -ge 2 ]; then
+            echo "✅ Prod deployment health check passed (${TASK_COUNT} tasks running)"
+          else
+            echo "::warning::Expected at least 2 running tasks, found ${TASK_COUNT}"
+          fi
+          
+          # Verify each task status
+          FIRST_TASK=$(echo "$TASK_ARNS" | jq -r '.[0]')
+          if [ "$FIRST_TASK" != "null" ] && [ -n "$FIRST_TASK" ]; then
+            HEALTH=$(aws ecs describe-tasks \
+              --cluster ${{ env.ECS_CLUSTER }} \
+              --tasks $FIRST_TASK \
+              --query 'tasks[0].healthStatus' \
+              --output text)
+            echo "Task health status: ${HEALTH}"
+          fi

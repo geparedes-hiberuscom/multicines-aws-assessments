@@ -1,0 +1,437 @@
+{
+  "summary": {
+    "total_security_groups": 8,
+    "total_ingress_rules": 9,
+    "total_egress_rules": 9,
+    "total_issues": 10,
+    "sgs_with_issues": 8,
+    "sgs_without_issues": 0,
+    "severity_counts": {
+      "CRITICAL": 1,
+      "HIGH": 0,
+      "MEDIUM": 0,
+      "LOW": 9
+    }
+  },
+  "security_groups": [
+    {
+      "sg_id": "sg-04f21c4c1d065fe60",
+      "sg_name": "prod-sg-alb",
+      "name_tag": "",
+      "vpc_id": "vpc-0860a0d2cf4df6140",
+      "description": "Grupo de seguridad para ALB",
+      "ingress_rules": [
+        {
+          "protocol": "tcp",
+          "from_port": 80,
+          "to_port": 80,
+          "source": "0.0.0.0/0",
+          "source_type": "cidr_ipv4",
+          "description": ""
+        },
+        {
+          "protocol": "tcp",
+          "from_port": 443,
+          "to_port": 443,
+          "source": "0.0.0.0/0",
+          "source_type": "cidr_ipv4",
+          "description": ""
+        }
+      ],
+      "egress_rules": [
+        {
+          "protocol": "-1",
+          "from_port": 0,
+          "to_port": 0,
+          "destination": "0.0.0.0/0",
+          "destination_type": "cidr_ipv4",
+          "description": ""
+        }
+      ],
+      "ingress_rule_count": 2,
+      "egress_rule_count": 1,
+      "issues": [
+        {
+          "severity": "LOW",
+          "rule_direction": "ingress",
+          "issue": "HTTP (port 80) open to the internet - should redirect to HTTPS",
+          "detail": "Protocol: tcp, Port: 80-80, Source: 0.0.0.0/0"
+        },
+        {
+          "severity": "LOW",
+          "rule_direction": "egress",
+          "issue": "Unrestricted outbound traffic (all protocols to 0.0.0.0/0)",
+          "detail": "Protocol: ALL, Ports: ALL, Destination: 0.0.0.0/0"
+        }
+      ],
+      "issue_count": 2
+    },
+    {
+      "sg_id": "sg-0bd705b1fd4514783",
+      "sg_name": "prod-sg-vpn",
+      "name_tag": "",
+      "vpc_id": "vpc-059518f8ed756e6e6",
+      "description": "Grupo de seguridad para la VPN",
+      "ingress_rules": [
+        {
+          "protocol": "-1",
+          "from_port": 0,
+          "to_port": 0,
+          "source": "0.0.0.0/0",
+          "source_type": "cidr_ipv4",
+          "description": ""
+        }
+      ],
+      "egress_rules": [
+        {
+          "protocol": "-1",
+          "from_port": 0,
+          "to_port": 0,
+          "destination": "0.0.0.0/0",
+          "destination_type": "cidr_ipv4",
+          "description": ""
+        }
+      ],
+      "ingress_rule_count": 1,
+      "egress_rule_count": 1,
+      "issues": [
+        {
+          "severity": "CRITICAL",
+          "rule_direction": "ingress",
+          "issue": "All traffic allowed from anywhere (0.0.0.0/0)",
+          "detail": "Protocol: ALL, Ports: ALL, Source: 0.0.0.0/0"
+        },
+        {
+          "severity": "LOW",
+          "rule_direction": "egress",
+          "issue": "Unrestricted outbound traffic (all protocols to 0.0.0.0/0)",
+          "detail": "Protocol: ALL, Ports: ALL, Destination: 0.0.0.0/0"
+        }
+      ],
+      "issue_count": 2
+    },
+    {
+      "sg_id": "sg-0b19eae99c365c720",
+      "sg_name": "default",
+      "name_tag": "",
+      "vpc_id": "vpc-059518f8ed756e6e6",
+      "description": "default VPC security group",
+      "ingress_rules": [
+        {
+          "protocol": "-1",
+          "from_port": 0,
+          "to_port": 0,
+          "source": "sg-0b19eae99c365c720",
+          "source_type": "security_group",
+          "description": ""
+        }
+      ],
+      "egress_rules": [
+        {
+          "protocol": "-1",
+          "from_port": 0,
+          "to_port": 0,
+          "destination": "0.0.0.0/0",
+          "destination_type": "cidr_ipv4",
+          "description": ""
+        }
+      ],
+      "ingress_rule_count": 1,
+      "egress_rule_count": 1,
+      "issues": [
+        {
+          "severity": "LOW",
+          "rule_direction": "egress",
+          "issue": "Unrestricted outbound traffic (all protocols to 0.0.0.0/0)",
+          "detail": "Protocol: ALL, Ports: ALL, Destination: 0.0.0.0/0"
+        }
+      ],
+      "issue_count": 1
+    },
+    {
+      "sg_id": "sg-01c619444bab0b8d3",
+      "sg_name": "dev-sg-ecs",
+      "name_tag": "",
+      "vpc_id": "vpc-0a5ebea8e7bee9ed5",
+      "description": "Tasks Fargate DEV - entrada solo desde el ALB",
+      "ingress_rules": [
+        {
+          "protocol": "tcp",
+          "from_port": 8095,
+          "to_port": 8095,
+          "source": "sg-0fdf0c744482646ae",
+          "source_type": "security_group",
+          "description": "entrada solo desde el ALB"
+        }
+      ],
+      "egress_rules": [
+        {
+          "protocol": "-1",
+          "from_port": 0,
+          "to_port": 0,
+          "destination": "0.0.0.0/0",
+          "destination_type": "cidr_ipv4",
+          "description": ""
+        }
+      ],
+      "ingress_rule_count": 1,
+      "egress_rule_count": 1,
+      "issues": [
+        {
+          "severity": "LOW",
+          "rule_direction": "egress",
+          "issue": "Unrestricted outbound traffic (all protocols to 0.0.0.0/0)",
+          "detail": "Protocol: ALL, Ports: ALL, Destination: 0.0.0.0/0"
+        }
+      ],
+      "issue_count": 1
+    },
+    {
+      "sg_id": "sg-0b78c14cd02b2f6e1",
+      "sg_name": "prod-sg-ecs",
+      "name_tag": "",
+      "vpc_id": "vpc-0860a0d2cf4df6140",
+      "description": "Grupo de seguridad para ECS Fargate",
+      "ingress_rules": [
+        {
+          "protocol": "tcp",
+          "from_port": 8095,
+          "to_port": 8095,
+          "source": "sg-04f21c4c1d065fe60",
+          "source_type": "security_group",
+          "description": ""
+        }
+      ],
+      "egress_rules": [
+        {
+          "protocol": "-1",
+          "from_port": 0,
+          "to_port": 0,
+          "destination": "0.0.0.0/0",
+          "destination_type": "cidr_ipv4",
+          "description": ""
+        },
+        {
+          "protocol": "tcp",
+          "from_port": 443,
+          "to_port": 443,
+          "destination": "0.0.0.0/0",
+          "destination_type": "cidr_ipv4",
+          "description": ""
+        }
+      ],
+      "ingress_rule_count": 1,
+      "egress_rule_count": 2,
+      "issues": [
+        {
+          "severity": "LOW",
+          "rule_direction": "egress",
+          "issue": "Unrestricted outbound traffic (all protocols to 0.0.0.0/0)",
+          "detail": "Protocol: ALL, Ports: ALL, Destination: 0.0.0.0/0"
+        }
+      ],
+      "issue_count": 1
+    },
+    {
+      "sg_id": "sg-0fdf0c744482646ae",
+      "sg_name": "dev-sg-alb",
+      "name_tag": "",
+      "vpc_id": "vpc-0a5ebea8e7bee9ed5",
+      "description": "ALB DEV - entrada HTTPs desde Trade",
+      "ingress_rules": [
+        {
+          "protocol": "tcp",
+          "from_port": 443,
+          "to_port": 443,
+          "source": "0.0.0.0/0",
+          "source_type": "cidr_ipv4",
+          "description": "IP Trade"
+        }
+      ],
+      "egress_rules": [
+        {
+          "protocol": "-1",
+          "from_port": 0,
+          "to_port": 0,
+          "destination": "0.0.0.0/0",
+          "destination_type": "cidr_ipv4",
+          "description": ""
+        }
+      ],
+      "ingress_rule_count": 1,
+      "egress_rule_count": 1,
+      "issues": [
+        {
+          "severity": "LOW",
+          "rule_direction": "egress",
+          "issue": "Unrestricted outbound traffic (all protocols to 0.0.0.0/0)",
+          "detail": "Protocol: ALL, Ports: ALL, Destination: 0.0.0.0/0"
+        }
+      ],
+      "issue_count": 1
+    },
+    {
+      "sg_id": "sg-0af4ff8abd9aec744",
+      "sg_name": "default",
+      "name_tag": "",
+      "vpc_id": "vpc-0a5ebea8e7bee9ed5",
+      "description": "default VPC security group",
+      "ingress_rules": [
+        {
+          "protocol": "-1",
+          "from_port": 0,
+          "to_port": 0,
+          "source": "sg-0af4ff8abd9aec744",
+          "source_type": "security_group",
+          "description": ""
+        }
+      ],
+      "egress_rules": [
+        {
+          "protocol": "-1",
+          "from_port": 0,
+          "to_port": 0,
+          "destination": "0.0.0.0/0",
+          "destination_type": "cidr_ipv4",
+          "description": ""
+        }
+      ],
+      "ingress_rule_count": 1,
+      "egress_rule_count": 1,
+      "issues": [
+        {
+          "severity": "LOW",
+          "rule_direction": "egress",
+          "issue": "Unrestricted outbound traffic (all protocols to 0.0.0.0/0)",
+          "detail": "Protocol: ALL, Ports: ALL, Destination: 0.0.0.0/0"
+        }
+      ],
+      "issue_count": 1
+    },
+    {
+      "sg_id": "sg-0adf5805a777a592c",
+      "sg_name": "default",
+      "name_tag": "",
+      "vpc_id": "vpc-0860a0d2cf4df6140",
+      "description": "default VPC security group",
+      "ingress_rules": [
+        {
+          "protocol": "-1",
+          "from_port": 0,
+          "to_port": 0,
+          "source": "sg-0adf5805a777a592c",
+          "source_type": "security_group",
+          "description": ""
+        }
+      ],
+      "egress_rules": [
+        {
+          "protocol": "-1",
+          "from_port": 0,
+          "to_port": 0,
+          "destination": "0.0.0.0/0",
+          "destination_type": "cidr_ipv4",
+          "description": ""
+        }
+      ],
+      "ingress_rule_count": 1,
+      "egress_rule_count": 1,
+      "issues": [
+        {
+          "severity": "LOW",
+          "rule_direction": "egress",
+          "issue": "Unrestricted outbound traffic (all protocols to 0.0.0.0/0)",
+          "detail": "Protocol: ALL, Ports: ALL, Destination: 0.0.0.0/0"
+        }
+      ],
+      "issue_count": 1
+    }
+  ],
+  "security_issues": [
+    {
+      "severity": "LOW",
+      "rule_direction": "ingress",
+      "issue": "HTTP (port 80) open to the internet - should redirect to HTTPS",
+      "detail": "Protocol: tcp, Port: 80-80, Source: 0.0.0.0/0",
+      "sg_id": "sg-04f21c4c1d065fe60",
+      "sg_name": "prod-sg-alb"
+    },
+    {
+      "severity": "LOW",
+      "rule_direction": "egress",
+      "issue": "Unrestricted outbound traffic (all protocols to 0.0.0.0/0)",
+      "detail": "Protocol: ALL, Ports: ALL, Destination: 0.0.0.0/0",
+      "sg_id": "sg-04f21c4c1d065fe60",
+      "sg_name": "prod-sg-alb"
+    },
+    {
+      "severity": "CRITICAL",
+      "rule_direction": "ingress",
+      "issue": "All traffic allowed from anywhere (0.0.0.0/0)",
+      "detail": "Protocol: ALL, Ports: ALL, Source: 0.0.0.0/0",
+      "sg_id": "sg-0bd705b1fd4514783",
+      "sg_name": "prod-sg-vpn"
+    },
+    {
+      "severity": "LOW",
+      "rule_direction": "egress",
+      "issue": "Unrestricted outbound traffic (all protocols to 0.0.0.0/0)",
+      "detail": "Protocol: ALL, Ports: ALL, Destination: 0.0.0.0/0",
+      "sg_id": "sg-0bd705b1fd4514783",
+      "sg_name": "prod-sg-vpn"
+    },
+    {
+      "severity": "LOW",
+      "rule_direction": "egress",
+      "issue": "Unrestricted outbound traffic (all protocols to 0.0.0.0/0)",
+      "detail": "Protocol: ALL, Ports: ALL, Destination: 0.0.0.0/0",
+      "sg_id": "sg-0b19eae99c365c720",
+      "sg_name": "default"
+    },
+    {
+      "severity": "LOW",
+      "rule_direction": "egress",
+      "issue": "Unrestricted outbound traffic (all protocols to 0.0.0.0/0)",
+      "detail": "Protocol: ALL, Ports: ALL, Destination: 0.0.0.0/0",
+      "sg_id": "sg-01c619444bab0b8d3",
+      "sg_name": "dev-sg-ecs"
+    },
+    {
+      "severity": "LOW",
+      "rule_direction": "egress",
+      "issue": "Unrestricted outbound traffic (all protocols to 0.0.0.0/0)",
+      "detail": "Protocol: ALL, Ports: ALL, Destination: 0.0.0.0/0",
+      "sg_id": "sg-0b78c14cd02b2f6e1",
+      "sg_name": "prod-sg-ecs"
+    },
+    {
+      "severity": "LOW",
+      "rule_direction": "egress",
+      "issue": "Unrestricted outbound traffic (all protocols to 0.0.0.0/0)",
+      "detail": "Protocol: ALL, Ports: ALL, Destination: 0.0.0.0/0",
+      "sg_id": "sg-0fdf0c744482646ae",
+      "sg_name": "dev-sg-alb"
+    },
+    {
+      "severity": "LOW",
+      "rule_direction": "egress",
+      "issue": "Unrestricted outbound traffic (all protocols to 0.0.0.0/0)",
+      "detail": "Protocol: ALL, Ports: ALL, Destination: 0.0.0.0/0",
+      "sg_id": "sg-0af4ff8abd9aec744",
+      "sg_name": "default"
+    },
+    {
+      "severity": "LOW",
+      "rule_direction": "egress",
+      "issue": "Unrestricted outbound traffic (all protocols to 0.0.0.0/0)",
+      "detail": "Protocol: ALL, Ports: ALL, Destination: 0.0.0.0/0",
+      "sg_id": "sg-0adf5805a777a592c",
+      "sg_name": "default"
+    }
+  ],
+  "metadata": {
+    "timestamp": "2026-06-24T16:44:46Z",
+    "region": "us-east-1",
+    "account": "340271092920"
+  }
+}

@@ -1,0 +1,419 @@
+{
+  "summary": {
+    "total_resources": 23,
+    "compliant_resources": 0,
+    "non_compliant_resources": 23,
+    "compliance_rate_percent": 0.0,
+    "required_tags": [
+      "Project",
+      "Environment",
+      "ManagedBy",
+      "Service"
+    ],
+    "missing_tag_frequency": {
+      "Project": 23,
+      "Environment": 23,
+      "ManagedBy": 23,
+      "Service": 23
+    },
+    "compliance_by_resource_type": {
+      "ec2": {
+        "total": 21,
+        "compliant": 0,
+        "non_compliant": 21
+      },
+      "cloudformation": {
+        "total": 1,
+        "compliant": 0,
+        "non_compliant": 1
+      },
+      "ecs": {
+        "total": 1,
+        "compliant": 0,
+        "non_compliant": 1
+      }
+    }
+  },
+  "compliant_resources": [],
+  "non_compliant_resources": [
+    {
+      "arn": "arn:aws:ec2:us-east-1:340271092920:internet-gateway/igw-02cc91ebe8c1c22d3",
+      "resource_type": "ec2",
+      "existing_tags": {
+        "Name": "dev-igw"
+      },
+      "required_tags_present": [],
+      "required_tags_missing": [
+        "Project",
+        "Environment",
+        "ManagedBy",
+        "Service"
+      ],
+      "is_compliant": false,
+      "compliance_percentage": 0.0
+    },
+    {
+      "arn": "arn:aws:ec2:us-east-1:340271092920:natgateway/nat-0bb28ceef6805b2d5",
+      "resource_type": "ec2",
+      "existing_tags": {
+        "Name": "prod-nat-multicines"
+      },
+      "required_tags_present": [],
+      "required_tags_missing": [
+        "Project",
+        "Environment",
+        "ManagedBy",
+        "Service"
+      ],
+      "is_compliant": false,
+      "compliance_percentage": 0.0
+    },
+    {
+      "arn": "arn:aws:ec2:us-east-1:340271092920:vpn-gateway/vgw-0954e2b1a370ae78e",
+      "resource_type": "ec2",
+      "existing_tags": {
+        "Name": "prod-vgw-multicines"
+      },
+      "required_tags_present": [],
+      "required_tags_missing": [
+        "Project",
+        "Environment",
+        "ManagedBy",
+        "Service"
+      ],
+      "is_compliant": false,
+      "compliance_percentage": 0.0
+    },
+    {
+      "arn": "arn:aws:ec2:us-east-1:340271092920:vpn-gateway/vgw-0d4a9bbfacc384bdc",
+      "resource_type": "ec2",
+      "existing_tags": {
+        "Name": "dev-vgw"
+      },
+      "required_tags_present": [],
+      "required_tags_missing": [
+        "Project",
+        "Environment",
+        "ManagedBy",
+        "Service"
+      ],
+      "is_compliant": false,
+      "compliance_percentage": 0.0
+    },
+    {
+      "arn": "arn:aws:cloudformation:us-east-1:340271092920:stack/Infra-ECS-Cluster-multicines-cluster-467f8158/27911730-6bec-11f1-80bd-26f8e74430b7",
+      "resource_type": "cloudformation",
+      "existing_tags": {},
+      "required_tags_present": [],
+      "required_tags_missing": [
+        "Project",
+        "Environment",
+        "ManagedBy",
+        "Service"
+      ],
+      "is_compliant": false,
+      "compliance_percentage": 0.0
+    },
+    {
+      "arn": "arn:aws:ec2:us-east-1:340271092920:subnet/subnet-0eeec60453f7f9492",
+      "resource_type": "ec2",
+      "existing_tags": {
+        "Name": "dev-subnet-private-az1a"
+      },
+      "required_tags_present": [],
+      "required_tags_missing": [
+        "Project",
+        "Environment",
+        "ManagedBy",
+        "Service"
+      ],
+      "is_compliant": false,
+      "compliance_percentage": 0.0
+    },
+    {
+      "arn": "arn:aws:ec2:us-east-1:340271092920:subnet/subnet-05c92a4889326c68e",
+      "resource_type": "ec2",
+      "existing_tags": {
+        "Name": "prod-subnet-public-1b"
+      },
+      "required_tags_present": [],
+      "required_tags_missing": [
+        "Project",
+        "Environment",
+        "ManagedBy",
+        "Service"
+      ],
+      "is_compliant": false,
+      "compliance_percentage": 0.0
+    },
+    {
+      "arn": "arn:aws:ec2:us-east-1:340271092920:route-table/rtb-0c12e0a029c4f8cd1",
+      "resource_type": "ec2",
+      "existing_tags": {
+        "Name": "prod-rtb-multicines-public"
+      },
+      "required_tags_present": [],
+      "required_tags_missing": [
+        "Project",
+        "Environment",
+        "ManagedBy",
+        "Service"
+      ],
+      "is_compliant": false,
+      "compliance_percentage": 0.0
+    },
+    {
+      "arn": "arn:aws:ec2:us-east-1:340271092920:route-table/rtb-0b9ed0da82cf33bc8",
+      "resource_type": "ec2",
+      "existing_tags": {
+        "Name": "dev-rtb-public"
+      },
+      "required_tags_present": [],
+      "required_tags_missing": [
+        "Project",
+        "Environment",
+        "ManagedBy",
+        "Service"
+      ],
+      "is_compliant": false,
+      "compliance_percentage": 0.0
+    },
+    {
+      "arn": "arn:aws:ec2:us-east-1:340271092920:subnet/subnet-04e4cd18763fd6f84",
+      "resource_type": "ec2",
+      "existing_tags": {
+        "Name": "prod-subnet-public-1a"
+      },
+      "required_tags_present": [],
+      "required_tags_missing": [
+        "Project",
+        "Environment",
+        "ManagedBy",
+        "Service"
+      ],
+      "is_compliant": false,
+      "compliance_percentage": 0.0
+    },
+    {
+      "arn": "arn:aws:ec2:us-east-1:340271092920:subnet/subnet-04f8ac3335c426f57",
+      "resource_type": "ec2",
+      "existing_tags": {
+        "Name": "prod-subnet-private-1b"
+      },
+      "required_tags_present": [],
+      "required_tags_missing": [
+        "Project",
+        "Environment",
+        "ManagedBy",
+        "Service"
+      ],
+      "is_compliant": false,
+      "compliance_percentage": 0.0
+    },
+    {
+      "arn": "arn:aws:ec2:us-east-1:340271092920:natgateway/nat-0bab8e961603584d4",
+      "resource_type": "ec2",
+      "existing_tags": {
+        "Name": "prod-nat-multicines-1b"
+      },
+      "required_tags_present": [],
+      "required_tags_missing": [
+        "Project",
+        "Environment",
+        "ManagedBy",
+        "Service"
+      ],
+      "is_compliant": false,
+      "compliance_percentage": 0.0
+    },
+    {
+      "arn": "arn:aws:ec2:us-east-1:340271092920:subnet/subnet-0c92479c2831f04eb",
+      "resource_type": "ec2",
+      "existing_tags": {
+        "Name": "dev-subnet-public-az1a"
+      },
+      "required_tags_present": [],
+      "required_tags_missing": [
+        "Project",
+        "Environment",
+        "ManagedBy",
+        "Service"
+      ],
+      "is_compliant": false,
+      "compliance_percentage": 0.0
+    },
+    {
+      "arn": "arn:aws:ec2:us-east-1:340271092920:route-table/rtb-0e3f19841fbf3bb18",
+      "resource_type": "ec2",
+      "existing_tags": {
+        "Name": "dev-rtb-private"
+      },
+      "required_tags_present": [],
+      "required_tags_missing": [
+        "Project",
+        "Environment",
+        "ManagedBy",
+        "Service"
+      ],
+      "is_compliant": false,
+      "compliance_percentage": 0.0
+    },
+    {
+      "arn": "arn:aws:ecs:us-east-1:340271092920:cluster/multicines-cluster",
+      "resource_type": "ecs",
+      "existing_tags": {
+        "aws:cloudformation:stack-name": "Infra-ECS-Cluster-multicines-cluster-467f8158",
+        "aws:cloudformation:stack-id": "arn:aws:cloudformation:us-east-1:340271092920:stack/Infra-ECS-Cluster-multicines-cluster-467f8158/27911730-6bec-11f1-80bd-26f8e74430b7",
+        "aws:cloudformation:logical-id": "ECSCluster"
+      },
+      "required_tags_present": [],
+      "required_tags_missing": [
+        "Project",
+        "Environment",
+        "ManagedBy",
+        "Service"
+      ],
+      "is_compliant": false,
+      "compliance_percentage": 0.0
+    },
+    {
+      "arn": "arn:aws:ec2:us-east-1:340271092920:natgateway/nat-0e87680203ca13848",
+      "resource_type": "ec2",
+      "existing_tags": {
+        "Name": "dev-nat-az1a"
+      },
+      "required_tags_present": [],
+      "required_tags_missing": [
+        "Project",
+        "Environment",
+        "ManagedBy",
+        "Service"
+      ],
+      "is_compliant": false,
+      "compliance_percentage": 0.0
+    },
+    {
+      "arn": "arn:aws:ec2:us-east-1:340271092920:internet-gateway/igw-02629b250edc827d0",
+      "resource_type": "ec2",
+      "existing_tags": {
+        "Name": "prod-igw-multicines"
+      },
+      "required_tags_present": [],
+      "required_tags_missing": [
+        "Project",
+        "Environment",
+        "ManagedBy",
+        "Service"
+      ],
+      "is_compliant": false,
+      "compliance_percentage": 0.0
+    },
+    {
+      "arn": "arn:aws:ec2:us-east-1:340271092920:route-table/rtb-044c90eb8c9c4d767",
+      "resource_type": "ec2",
+      "existing_tags": {
+        "Name": "prod-rtb-multicines-private-1b"
+      },
+      "required_tags_present": [],
+      "required_tags_missing": [
+        "Project",
+        "Environment",
+        "ManagedBy",
+        "Service"
+      ],
+      "is_compliant": false,
+      "compliance_percentage": 0.0
+    },
+    {
+      "arn": "arn:aws:ec2:us-east-1:340271092920:vpc/vpc-0860a0d2cf4df6140",
+      "resource_type": "ec2",
+      "existing_tags": {
+        "Name": "prod-vpc-multicines"
+      },
+      "required_tags_present": [],
+      "required_tags_missing": [
+        "Project",
+        "Environment",
+        "ManagedBy",
+        "Service"
+      ],
+      "is_compliant": false,
+      "compliance_percentage": 0.0
+    },
+    {
+      "arn": "arn:aws:ec2:us-east-1:340271092920:route-table/rtb-0ecdf9f8ecbe02710",
+      "resource_type": "ec2",
+      "existing_tags": {
+        "Name": "prod-rtb-multicines-private-1a"
+      },
+      "required_tags_present": [],
+      "required_tags_missing": [
+        "Project",
+        "Environment",
+        "ManagedBy",
+        "Service"
+      ],
+      "is_compliant": false,
+      "compliance_percentage": 0.0
+    },
+    {
+      "arn": "arn:aws:ec2:us-east-1:340271092920:subnet/subnet-0d55ebfe5adbd4e81",
+      "resource_type": "ec2",
+      "existing_tags": {
+        "Name": "prod-subnet-private-1a"
+      },
+      "required_tags_present": [],
+      "required_tags_missing": [
+        "Project",
+        "Environment",
+        "ManagedBy",
+        "Service"
+      ],
+      "is_compliant": false,
+      "compliance_percentage": 0.0
+    },
+    {
+      "arn": "arn:aws:ec2:us-east-1:340271092920:subnet/subnet-02193c97ceb6ec25d",
+      "resource_type": "ec2",
+      "existing_tags": {
+        "Name": "dev-subnet-public-az1b"
+      },
+      "required_tags_present": [],
+      "required_tags_missing": [
+        "Project",
+        "Environment",
+        "ManagedBy",
+        "Service"
+      ],
+      "is_compliant": false,
+      "compliance_percentage": 0.0
+    },
+    {
+      "arn": "arn:aws:ec2:us-east-1:340271092920:vpc/vpc-0a5ebea8e7bee9ed5",
+      "resource_type": "ec2",
+      "existing_tags": {
+        "Name": "dev-vpc"
+      },
+      "required_tags_present": [],
+      "required_tags_missing": [
+        "Project",
+        "Environment",
+        "ManagedBy",
+        "Service"
+      ],
+      "is_compliant": false,
+      "compliance_percentage": 0.0
+    }
+  ],
+  "metadata": {
+    "timestamp": "2026-06-24T16:44:08Z",
+    "region": "us-east-1",
+    "account": "340271092920",
+    "required_tags": [
+      "Project",
+      "Environment",
+      "ManagedBy",
+      "Service"
+    ]
+  }
+}
