@@ -22,6 +22,8 @@ fi
 
 aws elbv2 modify-target-group --target-group-arn "$TG_ARN" \
   --health-check-path "$HEALTH_CHECK_PATH" --health-check-port "$HEALTH_CHECK_PORT" \
+  --health-check-interval-seconds 30 --health-check-timeout-seconds 10 \
+  --healthy-threshold-count 2 --unhealthy-threshold-count 5 \
   --region "$AWS_REGION" > /dev/null
 
-log_updated "Target Group $TG_NAME health check (port: $HEALTH_CHECK_PORT, path: $HEALTH_CHECK_PATH)"
+log_updated "Target Group $TG_NAME health check (port: $HEALTH_CHECK_PORT, path: $HEALTH_CHECK_PATH, timeout: 10s, unhealthy: 5)"

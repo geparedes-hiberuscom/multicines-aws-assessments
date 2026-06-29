@@ -64,7 +64,8 @@ if [ "${ECS_ENABLE_EXEC:-true}" == "true" ]; then
   EXEC_FLAG="--enable-execute-command"
 fi
 aws ecs update-service --cluster "$ECS_CLUSTER" --service "$ECS_SERVICE_NAME" \
-  --task-definition "$TASK_DEF_ARN" $EXEC_FLAG --region "$AWS_REGION" > /dev/null
+  --task-definition "$TASK_DEF_ARN" --health-check-grace-period-seconds 210 \
+  $EXEC_FLAG --region "$AWS_REGION" > /dev/null
 
 log_updated "ECS service $ECS_SERVICE_NAME -> $TASK_DEF_ARN"
 log_info "Waiting for service stability..."

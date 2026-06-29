@@ -121,6 +121,7 @@ else
  --desired-count "$ECS_DESIRED_COUNT" $EXEC_FLAG \
  --network-configuration "awsvpcConfiguration={subnets=[${SUBNETS_JSON}],securityGroups=[\"${ECS_SG_ID}\"],assignPublicIp=DISABLED}" \
  --load-balancers "targetGroupArn=${TG_ARN},containerName=${CONTAINER_NAME},containerPort=${CONTAINER_PORT}" \
+ --health-check-grace-period-seconds 210 \
  --region "$AWS_REGION" --tags $(get_ecs_tags "$ECS_SERVICE_NAME") > /dev/null
  if [ $? -ne 0 ]; then log_error "Failed to create ECS service"; exit 1; fi
  log_created "ECS service $ECS_SERVICE_NAME in $ECS_CLUSTER"

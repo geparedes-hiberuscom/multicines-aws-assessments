@@ -64,7 +64,8 @@ else
     --port "$CONTAINER_PORT" --vpc-id "$VPC_ID" --target-type ip \
     --health-check-protocol HTTP --health-check-port "$HEALTH_CHECK_PORT" \
     --health-check-path "$HEALTH_CHECK_PATH" --health-check-interval-seconds 30 \
-    --healthy-threshold-count 3 --unhealthy-threshold-count 3 \
+    --health-check-timeout-seconds 10 \
+    --healthy-threshold-count 2 --unhealthy-threshold-count 5 \
     --region "$AWS_REGION" --tags $(get_tags "$ECS_TG_NAME") \
     --query 'TargetGroups[0].TargetGroupArn' --output text)
   if [ $? -ne 0 ] || [ -z "$TG_ARN" ]; then log_error "Failed to create TG"; exit 1; fi
