@@ -2,476 +2,491 @@
 
 ## Overview
 
-Este documento describe la arquitectura de scripts AWS CLI idempotentes para provisionar la infraestructura faltante de Multicines (ALB, VPN, WAF, ACM, SSM, Secrets Manager, Security Groups hardening, ECS Services) y el pipeline de documentación que convierte y extiende el manual de operaciones.
+Este documento describe la arquitectura implementada de scripts AWS CLI idempotentes que provisionan, actualizan y eliminan los recursos de infraestructura Multicines en los ambientes dev y prod (cuenta 340271092920, región us-east-1). Incluye también un pipeline de documentación que convierte el manual de operaciones existente a Markdown y lo exporta a DOCX, y workflows de GitHub Actions para CI/CD automatizado con rollback.
 
 ## Architecture
 
-La solución se estructura en tres capas:
+La solución se estructura en cuatro capas:
 
-1. **Shared Library** (`scripts/lib/common.sh`) — Funciones reutilizables: naming, logging, idempotency checks
-2. **Service Scripts** (`scripts/create-*.sh`, `scripts/harden-*.sh`) — Un script por servicio AWS, ejecutable de forma independiente
-3. **Orchestrator** (`scripts/create-all.sh`) — Invoca los service scripts en orden de dependencias
+1. **Shared Library** (`aws-cli/lib/common.sh`) — Funciones reutilizables: load_env, logging, naming, idempotencia, tags, validación de dependencias. NO contiene configuración.
+2. **Environment Configuration** (`aws-cli/environments/{env}/env.properties`) — Toda la configuración externalizada por ambiente.
+3. **Service Modules** (`aws-cli/{service}/create.sh|update.sh|delete.sh`) — Un subdirectorio por servicio AWS con ciclo de vida completo.
+4. **Orchestrators** (`aws-cli/create-all.sh`, `update-all.sh`, `delete-all.sh`) — Invocan módulos en orden de dependencias.
 
 ```
-scripts/
+aws-cli/
 ├── lib/
-│   └── common.sh              # Shared library
-├── create-all.sh              # Orchestrator
-├── create-acm.sh             # ACM Certificate
-├── create-waf.sh             # WAF Web ACL
-├── harden-security-groups.sh # SG egress hardening
-├── create-alb.sh             # ALB + Target Groups + Listeners
-├── create-ssm.sh            # SSM Parameter Store
-├── create-secrets.sh        # Secrets Manager
-├── create-ecs-service.sh    # ECS Task Definition + Service
-├── create-vpn.sh            # VPN Site-to-Site
-├── convert-manual.sh        # DOCX → MD conversion
-└── build-manual.sh          # Assemble + export MD → DOCX
-
-documents/
-├── sections/                # Pre-written new sections (ALB, VPN, WAF, etc.)
-├── images/                  # Extracted images from DOCX
-├── manual-multicines.md     # Assembled Markdown manual
-└── manual-multicines.docx   # Exported DOCX
+│   └── common.sh                  # Shared library (SOLO funciones)
+├── environments/
+│   ├── dev/
+│   │   ├── env.properties         # Configuración del ambiente dev
+│   │   ├── certs/                 # Certificados SSL para ACM
+│   │   └── secrets/
+│   │       └── secrets.txt        # Secretos para SSM/Secrets Manager
+│   └── prod/
+│       ├── env.properties
+│       ├── certs/
+│       └── secrets/
+│           └── secrets.txt
+├── acm/
+│   ├── create.sh                  # Importar certificado ACM
+│   ├── update.sh                  # Re-importar certificado
+│   └── delete.sh                  # Eliminar certificado
+├── alb/
+│   ├── create.sh                  # ALB + Target Group + Listeners
+│   ├── update.sh                  # Actualizar health check TG
+│   └── delete.sh                  # Eliminar ALB completo
+├── ecs/
+│   ├── create.sh                  # Task Definition + Service
+│   ├── update.sh                  # Nueva revisión TD + update service
+│   └── delete.sh                  # Eliminar servicio ECS
+├── route53/
+│   ├── create.sh                  # Hosted Zone + Alias Record
+│   ├── update.sh                  # UPSERT record (idempotente)
+│   └── delete.sh                  # Eliminar record + zone
+├── security-groups/
+│   ├── create.sh                  # Hardening egress rules
+│   ├── update.sh                  # Re-aplicar hardening
+│   └── delete.sh                  # Restaurar reglas permisivas
+├── secrets/
+│   ├── create.sh                  # Crear secretos desde secrets.txt
+│   ├── update.sh                  # Actualizar valores
+│   └── delete.sh                  # Eliminar secretos
+├── ssm/
+│   ├── create.sh                  # Crear parámetros desde secrets.txt
+│   ├── update.sh                  # Actualizar parámetros
+│   └── delete.sh                  # Eliminar parámetros
+├── vpn/
+│   ├── create.sh                  # CGW + VGW + VPN Connection
+│   ├── update.sh                  # Actualizar configuración
+│   └── delete.sh                  # Eliminar recursos VPN
+├── waf/
+│   ├── create.sh                  # WAF Web ACL + rate limiting
+│   ├── update.sh                  # Actualizar reglas/asociación
+│   └── delete.sh                  # Eliminar WAF
+├── documents/
+│   ├── sections/                  # Secciones nuevas del manual
+│   ├── images/                    # Imágenes extraídas del DOCX
+│   ├── manual-original.md         # Manual convertido
+│   ├── manual-multicines.md       # Manual ensamblado
+│   └── manual-multicines.docx     # Manual exportado
+├── create-all.sh                  # Orquestador: crear todo
+├── update-all.sh                  # Orquestador: actualizar todo
+├── delete-all.sh                  # Orquestador: eliminar todo (con confirmación)
+├── validate-env.sh                # Validar existencia de recursos pre-existentes
+├── convert-manual.sh              # DOCX → Markdown
+└── build-manual.sh                # Ensamblar + exportar MD → DOCX
 ```
+
+## Design Rules
+
+### Regla: Tripleta create/update/delete obligatoria por módulo
+
+**CADA módulo de servicio AWS** (`aws-cli/{service}/`) DEBE contener siempre los tres scripts de ciclo de vida:
+
+1. `create.sh` — Crear el recurso (idempotente)
+2. `update.sh` — Actualizar el recurso existente
+3. `delete.sh` — Eliminar el recurso
+
+Esta regla aplica a **todo nuevo componente o servicio AWS** que se agregue al proyecto. Si se introduce un nuevo módulo (por ejemplo, `observability/`, `cloudfront/`, `rds/`, etc.), se deben crear los tres scripts como parte de la implementación, sin excepción.
+
+**Justificación:** Garantizar que todo recurso provisionado pueda ser gestionado en su ciclo de vida completo (crear, actualizar, eliminar) de forma consistente con el resto del proyecto.
+
+---
 
 ## Components and Interfaces
 
-### Component 1: Shared Library (`scripts/lib/common.sh`)
+### Component 1: Shared Library (`aws-cli/lib/common.sh`)
 
-**Responsibility:** Provide naming convention helpers, logging utilities, and idempotency patterns reusable by all service scripts.
+**Responsibility:** Proveer funciones compartidas de logging, validación, carga de ambiente, naming, idempotencia, tags y validación de dependencias. NO contiene configuración ni variables de infraestructura.
 
-**Interfaces:**
+**Funciones implementadas:**
 
 ```bash
-#!/usr/bin/env bash
-# scripts/lib/common.sh — Shared library for Multicines AWS CLI scripts
-
-set -euo pipefail
-
-# === Constants ===
-AWS_ACCOUNT="340271092920"
-AWS_REGION="us-east-1"
-ECS_CLUSTER="multicines-cluster"
-ECR_REPO="multicines/integration-service"
-ECR_URI="${AWS_ACCOUNT}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPO}"
-CONTAINER_PORT=8095
-
-# === Environment-specific lookups ===
-declare -A VPC_IDS=(
-  [dev]="vpc-0a5ebea8e7bee9ed5"
-  [prod]="vpc-0860a0d2cf4df6140"
-)
-
-declare -A PUBLIC_SUBNETS=(
-  [dev]="subnet-0c92479c2831f04eb,subnet-02193c97ceb6ec25d"
-  [prod]="subnet-04e4cd18763fd6f84,subnet-05c92a4889326c68e"
-)
-
-declare -A PRIVATE_SUBNETS=(
-  [dev]="subnet-0eeec60453f7f9492"
-  [prod]="subnet-0d55ebfe5adbd4e81,subnet-04f8ac3335c426f57"
-)
-
-declare -A ALB_SG_IDS=(
-  [dev]="sg-0fdf0c744482646ae"
-  [prod]="sg-04f21c4c1d065fe60"
-)
-
-declare -A ECS_SG_IDS=(
-  [dev]="sg-01c619444bab0b8d3"
-  [prod]="sg-0b78c14cd02b2f6e1"
-)
-
-declare -A LOG_GROUPS=(
-  [dev]="/ecs/dev-multicines-integration"
-  [prod]="/ecs/prod-multicines-integration"
-)
-
-# === Naming Helper ===
-# Pattern: {env}-{resource}-{type}-{zone}
-# Zone is optional — omitted when not applicable
-generate_name() {
-  local env=$1 resource=$2 type=$3 zone=${4:-""}
-  if [ -z "$zone" ]; then
-    echo "${env}-${resource}-${type}"
-  else
-    echo "${env}-${resource}-${type}-${zone}"
-  fi
-}
+# === Validación ===
+validate_env()         # Valida que env sea "dev" o "prod", exit 1 si inválido
 
 # === Logging ===
-log_info() {
-  echo "[INFO] $(date '+%Y-%m-%d %H:%M:%S') $*"
-}
+log_info()             # [INFO] timestamp mensaje
+log_error()            # [ERROR] timestamp mensaje (stderr)
+log_skip()             # [SKIP] timestamp recurso - already exists
+log_created()          # [CREATED] timestamp recurso
+log_deleted()          # [DELETED] timestamp recurso
+log_updated()          # [UPDATED] timestamp recurso
 
-log_error() {
-  echo "[ERROR] $(date '+%Y-%m-%d %H:%M:%S') $*" >&2
-}
+# === Carga de Ambiente ===
+load_env()             # Source env.properties + derivar nombres y ECR_URI
 
-log_skip() {
-  echo "[SKIP] $(date '+%Y-%m-%d %H:%M:%S') $* — already exists"
-}
+# === Naming ===
+generate_name()        # {env}-{resource}-{type}[-{zone}]
 
-log_created() {
-  echo "[CREATED] $(date '+%Y-%m-%d %H:%M:%S') $*"
-}
+# === Idempotencia ===
+check_exists()         # Evalúa comando describe/list, retorna 0 si existe
 
-# === Idempotency Helper ===
-# Usage: check_exists <describe_command> <resource_description>
-# Returns 0 if resource exists, 1 if not
-check_exists() {
-  local describe_cmd="$1"
-  if eval "$describe_cmd" > /dev/null 2>&1; then
-    return 0
-  else
-    return 1
-  fi
-}
+# === Validación de Dependencias ===
+require_resource()     # Verifica dependencia, exit 1 con hint si falta
 
-# === Environment Validation ===
-validate_env() {
-  local env=$1
-  if [[ "$env" != "dev" && "$env" != "prod" ]]; then
-    log_error "Invalid environment: $env. Must be 'dev' or 'prod'."
-    exit 1
-  fi
-}
+# === Tags (3 formatos) ===
+get_tags()             # Key=Value format (ALB, ACM, SSM, Secrets, WAF)
+get_ecs_tags()         # key=value lowercase (ECS task defs y services)
+get_tag_spec()         # {Key=,Value=} format (EC2 tag-specifications: VPN, CGW, VGW)
+
+# === Helpers ===
+get_certs_dir()        # Retorna path a environments/{env}/certs/
 ```
 
-### Component 2: Orchestrator (`scripts/create-all.sh`)
-
-**Responsibility:** Accept an environment parameter and invoke service scripts in dependency order.
-
-**Execution Order (Dependency Chain):**
-
-```
-1. create-acm.sh        → ACM certificate (needs DNS validation before ALB can use it)
-2. create-waf.sh        → WAF Web ACL (must exist before ALB association)
-3. harden-security-groups.sh → Restrict egress rules
-4. create-alb.sh        → ALB + Target Groups + Listeners (needs ACM ARN, WAF ARN, SGs)
-5. create-ssm.sh       → SSM Parameters
-6. create-secrets.sh   → Secrets Manager
-7. create-ecs-service.sh → ECS Task Definition + Service (needs ALB TG, SSM, Secrets)
-8. create-vpn.sh       → VPN (independent, placeholders)
-```
-
-**Interface:**
+**`load_env` — Comportamiento detallado:**
 
 ```bash
-#!/usr/bin/env bash
-# scripts/create-all.sh — Orchestrator
-
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "${SCRIPT_DIR}/lib/common.sh"
-
-ENV="${1:?Usage: $0 <dev|prod>}"
-validate_env "$ENV"
-
-log_info "=== Starting infrastructure provisioning for environment: $ENV ==="
-
-SCRIPTS=(
-  "create-acm.sh"
-  "create-waf.sh"
-  "harden-security-groups.sh"
-  "create-alb.sh"
-  "create-ssm.sh"
-  "create-secrets.sh"
-  "create-ecs-service.sh"
-  "create-vpn.sh"
-)
-
-for script in "${SCRIPTS[@]}"; do
-  log_info "--- Executing: $script ---"
-  "${SCRIPT_DIR}/${script}" "$ENV"
-  if [ $? -ne 0 ]; then
-    log_error "Script $script failed. Stopping."
-    exit 1
-  fi
-done
-
-log_info "=== All scripts completed successfully for $ENV ==="
+load_env() {
+  # 1. Valida ambiente (dev|prod)
+  # 2. Source environments/{env}/env.properties
+  # 3. Deriva variables:
+  export ECR_URI="${AWS_ACCOUNT}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPO}"
+  export ALB_NAME="${ENV}-${APP_NAME}-alb"
+  export ECS_TG_NAME="${ENV}-${APP_NAME}-tg"
+  export ECS_SERVICE_NAME="${ENV}-${APP_NAME}-svc"
+  export ECS_TASK_FAMILY="${ENV}-${APP_NAME}-task"
+  export WAF_NAME="${ENV}-${APP_NAME}-waf"
+  export VPN_NAME="${ENV}-${APP_NAME}-vpn"
+  export VGW_NAME="${ENV}-${APP_NAME}-vgw"
+  export CGW_NAME="${ENV}-${APP_NAME}-cgw"
+  export ACM_NAME="${ENV}-${APP_NAME}-acm"
+}
 ```
 
-### Component 3: Service Scripts — Idempotency Pattern
+**Naming Convention:** `{env}-{app_name}-{resource_type}`  
+Ejemplos: `dev-multicines-integration-alb`, `dev-multicines-integration-tg`, `dev-multicines-integration-svc`
 
-Each service script follows a consistent pattern:
+### Component 2: Environment Configuration (`environments/{env}/env.properties`)
 
-```bash
-#!/usr/bin/env bash
-# scripts/create-<service>.sh
+**Responsibility:** Centralizar TODA la configuración de infraestructura por ambiente en un archivo plano key=value.
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "${SCRIPT_DIR}/lib/common.sh"
+**Variables definidas:**
 
-ENV="${1:?Usage: $0 <dev|prod>}"
-validate_env "$ENV"
+| Categoría | Variables |
+|-----------|-----------|
+| Application | APP_NAME, PROJECT_NAME, AWS_ACCOUNT, AWS_REGION |
+| Networking | VPC_ID, PUBLIC_SUBNETS, PRIVATE_SUBNETS, ALB_SG_ID, ECS_SG_ID |
+| Domain | DOMAIN (wildcard: `*.test.multicines.com.ec`) |
+| ALB | ALB_SSL_POLICY (`ELBSecurityPolicy-TLS13-1-2-2021-06`) |
+| ECS | ECS_CLUSTER, ECS_CPU, ECS_MEMORY, ECS_DESIRED_COUNT, ECS_IMAGE_TAG, ECS_ENABLE_EXEC |
+| ECR | ECR_REPO |
+| Container | CONTAINER_PORT, CONTAINER_NAME, HEALTH_CHECK_PATH, HEALTH_CHECK_PORT |
+| Container Env | SPRING_PROFILES_ACTIVE, OTEL_LOGS_EXPORTER, OTEL_METRICS_EXPORTER, OTEL_TRACES_EXPORTER |
+| Logs | LOG_GROUP |
+| IAM | EXECUTION_ROLE_ARN, TASK_ROLE_ARN |
+| WAF | WAF_RATE_LIMIT |
+| VPN | VPN_CUSTOMER_IP (placeholder: 0.0.0.0), VPN_BGP_ASN (placeholder: 65000) |
 
-# 1. Generate resource name
-RESOURCE_NAME=$(generate_name "$ENV" "<resource>" "<type>")
+### Component 3: Orchestrators
 
-# 2. Check if resource exists (idempotency)
-if check_exists "aws <service> describe-<resource> --name $RESOURCE_NAME --region $AWS_REGION"; then
-  log_skip "$RESOURCE_NAME"
-else
-  # 3. Create resource
-  aws <service> create-<resource> ... --region "$AWS_REGION"
-  if [ $? -ne 0 ]; then
-    log_error "Failed to create $RESOURCE_NAME"
-    exit 1
-  fi
-  log_created "$RESOURCE_NAME"
-fi
+**`create-all.sh` — Orden de creación (cadena de dependencias):**
+
+```
+1. acm/create.sh          → Certificado SSL (requerido por ALB HTTPS listener)
+2. waf/create.sh          → WAF Web ACL (se asocia al ALB si existe)
+3. security-groups/create.sh → Hardening de egress rules
+4. alb/create.sh          → ALB + Target Group + Listeners (requiere ACM)
+5. route53/create.sh      → DNS record alias → ALB (requiere ALB)
+6. ssm/create.sh          → SSM Parameter Store
+7. secrets/create.sh      → Secrets Manager
+8. ecs/create.sh          → Task Definition + Service (requiere TG del ALB)
+9. vpn/create.sh          → VPN Site-to-Site (independiente)
 ```
 
-### Component 4: ALB Script (`scripts/create-alb.sh`)
+**`update-all.sh` — Módulos actualizables:**
 
-**Responsibility:** Create ALB, Target Group, and HTTPS Listener for the specified environment.
-
-**Key Operations:**
-- Creates ALB of type `application` in public subnets with the existing ALB security group
-- Creates Target Group with health check on port 8095, protocol HTTP
-- Creates HTTPS:443 listener forwarding to the target group (requires ACM cert ARN)
-
-**Data Flow:**
 ```
-Input: ENV (dev|prod)
-  → Lookup subnets: PUBLIC_SUBNETS[$ENV]
-  → Lookup SG: ALB_SG_IDS[$ENV]
-  → Generate names: generate_name($ENV, "alb", "application")
-  → Check existence via: aws elbv2 describe-load-balancers --names <name>
-  → Create ALB → ARN
-  → Create Target Group → TG ARN
-  → Create Listener (ALB ARN + TG ARN + ACM cert ARN)
-Output: ALB ARN, Target Group ARN (stored for ECS script)
+1. ssm/update.sh
+2. secrets/update.sh
+3. security-groups/update.sh
+4. waf/update.sh
+5. ecs/update.sh
+6. acm/update.sh
 ```
 
-### Component 5: WAF Script (`scripts/create-waf.sh`)
+**`delete-all.sh` — Orden inverso con confirmación destructiva:**
 
-**Responsibility:** Create a REGIONAL WAF Web ACL with rate limiting rule and associate it with the ALB.
-
-**Key Operations:**
-- Creates WAF Web ACL with scope REGIONAL
-- Adds rate-based rule (configurable threshold)
-- Associates Web ACL with the ALB ARN after ALB creation
-
-### Component 6: ACM Script (`scripts/create-acm.sh`)
-
-**Responsibility:** Request an ACM certificate and output DNS validation instructions.
-
-**Key Operations:**
-- Requests certificate via `aws acm request-certificate`
-- Outputs CNAME records needed for DNS validation
-- Tags certificate following naming convention
-
-### Component 7: Security Groups Hardening (`scripts/harden-security-groups.sh`)
-
-**Responsibility:** Replace permissive egress rules with restrictive ones on existing SGs.
-
-**Key Operations:**
-- Revokes `0.0.0.0/0` all-traffic egress on ALB SGs
-- Adds egress rule ALB→ECS on port 8095 only
-- Revokes `0.0.0.0/0` all-traffic egress on ECS SGs
-- Adds egress rules ECS→HTTPS(443) for AWS service endpoints (ECR, CloudWatch, SSM, Secrets Manager)
-
-### Component 8: VPN Script (`scripts/create-vpn.sh`)
-
-**Responsibility:** Create VPN Site-to-Site resources with placeholder values for customer gateway.
-
-**Key Operations:**
-- Creates Customer Gateway with placeholder IP (`0.0.0.0`) and BGP ASN (`65000`)
-- Creates Virtual Private Gateway and attaches to VPC
-- Creates VPN Connection type `ipsec.1`
-- Enables route propagation on private route tables
-
-### Component 9: SSM Script (`scripts/create-ssm.sh`)
-
-**Responsibility:** Create SSM parameters under `/multicines/integrator/{env}/` hierarchy.
-
-**Parameters to create:**
-- `/multicines/integrator/{env}/app` — Application config (vista.base-url)
-- `/multicines/integrator/{env}/resilience` — Resilience4j configuration (SecureString due to sensitive thresholds)
-
-### Component 10: Secrets Script (`scripts/create-secrets.sh`)
-
-**Responsibility:** Create Secrets Manager secrets with placeholder values per environment.
-
-**Key Operations:**
-- Creates `{env}-multicines-integration-secrets` with placeholder JSON
-- Idempotent: checks existence via `aws secretsmanager describe-secret`
-
-### Component 11: ECS Service Script (`scripts/create-ecs-service.sh`)
-
-**Responsibility:** Register Task Definition and create ECS Service in the existing cluster.
-
-**Task Definition Configuration:**
-- Image: `340271092920.dkr.ecr.us-east-1.amazonaws.com/multicines/integration-service:latest`
-- CPU: 256, Memory: 512 (Fargate)
-- Port mapping: containerPort 8095
-- Execution role: `ecsTaskExecutionRole`
-- Task role: `multicines-ecs-task-role`
-- Log configuration: awslogs driver → log group `/ecs/{env}-multicines-integration`
-- Secrets/environment from SSM and Secrets Manager
-
-**ECS Service Configuration:**
-- Cluster: `multicines-cluster`
-- Launch type: FARGATE
-- Network: private subnets + ECS security group
-- Load balancer: target group from ALB script
-- Desired count: 1
-
-### Component 12: Documentation Pipeline
-
-**`scripts/convert-manual.sh`:**
-```bash
-#!/usr/bin/env bash
-# Convert DOCX → MD, extract images
-
-PANDOC_VERSION="3.9.0.2"
-SOURCE="Insumos iniciales/Manual para multicines.docx"
-OUTPUT_DIR="documents"
-IMAGES_DIR="${OUTPUT_DIR}/images"
-
-mkdir -p "$IMAGES_DIR"
-
-pandoc "$SOURCE" \
-  -t markdown \
-  --extract-media="$IMAGES_DIR" \
-  -o "${OUTPUT_DIR}/manual-original.md"
+```
+1. Solicita confirmación explícita ("yes")
+2. vpn → ecs → secrets → ssm → route53 → alb → security-groups → waf → acm
 ```
 
-**`scripts/build-manual.sh`:**
-```bash
-#!/usr/bin/env bash
-# Assemble final manual (original + new sections) and export to DOCX
+### Component 4: ALB Module (`aws-cli/alb/`)
 
-OUTPUT_DIR="documents"
-SECTIONS_DIR="${OUTPUT_DIR}/sections"
-FINAL_MD="${OUTPUT_DIR}/manual-multicines.md"
-FINAL_DOCX="${OUTPUT_DIR}/manual-multicines.docx"
+**Configuración implementada:**
 
-# Concatenate original + new sections
-cat "${OUTPUT_DIR}/manual-original.md" > "$FINAL_MD"
-for section in "$SECTIONS_DIR"/*.md; do
-  echo "" >> "$FINAL_MD"
-  cat "$section" >> "$FINAL_MD"
-done
+| Parámetro | Valor |
+|-----------|-------|
+| Tipo ALB | application, internet-facing |
+| Target Group type | ip (Fargate) |
+| Health check protocol | HTTP |
+| Health check path | /actuator/health |
+| Health check port | 8095 |
+| Health check interval | 30s |
+| Health check timeout | 10s |
+| Healthy threshold | 2 |
+| Unhealthy threshold | 5 |
+| HTTPS listener port | 443 |
+| SSL Policy | ELBSecurityPolicy-TLS13-1-2-2021-06 (TLS 1.3) |
+| HTTP listener port | 80 (redirect → HTTPS 301) |
 
-# Export to DOCX
-pandoc "$FINAL_MD" \
-  -o "$FINAL_DOCX" \
-  --resource-path="${OUTPUT_DIR}"
+**Fail-fast:** Valida existencia del certificado ACM antes de crear cualquier recurso.
+
+### Component 5: ECS Module (`aws-cli/ecs/`)
+
+**Task Definition:**
+
+| Parámetro | Valor |
+|-----------|-------|
+| Family | `{env}-{app_name}-task` |
+| Network mode | awsvpc |
+| Compatibilidad | FARGATE |
+| CPU/Memory | Desde env.properties (dev: 512/1024) |
+| Image | `{ECR_URI}:{ECS_IMAGE_TAG}` |
+| Port mapping | CONTAINER_PORT (8095) TCP |
+| Log driver | awslogs (stream-prefix: `api`) |
+| Environment vars | SPRING_PROFILES_ACTIVE, AWS_REGION, OTEL_LOGS_EXPORTER, OTEL_METRICS_EXPORTER, OTEL_TRACES_EXPORTER |
+
+**ECS Service:**
+
+| Parámetro | Valor |
+|-----------|-------|
+| Cluster | multicines-cluster |
+| Launch type | FARGATE |
+| Health check grace period | 210 segundos |
+| Execute command | Habilitado cuando ECS_ENABLE_EXEC=true |
+| Network | Private subnets, ECS SG, assignPublicIp=DISABLED |
+| Load balancer | Target Group del ALB |
+| Desired count | Desde env.properties |
+
+**`update.sh`:** Registra nueva revisión de Task Definition, actualiza servicio con `health-check-grace-period-seconds 210`, y espera estabilidad con `aws ecs wait services-stable`.
+
+**`create.sh` — Manejo de DRAINING:** Si el servicio está en estado DRAINING, el script espera en loop hasta que cambie de estado antes de crear uno nuevo.
+
+### Component 6: Route53 Module (`aws-cli/route53/`)
+
+**Patrón DNS implementado:**
+
 ```
+1. Extrae base domain del wildcard: *.test.multicines.com.ec → test.multicines.com.ec
+2. Crea hosted zone para base domain (si no existe)
+3. Crea registro alias tipo A:
+   Nombre: {env}-integration.{base_domain}
+   Ejemplo: dev-integration.test.multicines.com.ec
+   Target: DNS del ALB (con EvaluateTargetHealth: true)
+4. Usa action UPSERT para idempotencia
+5. Emite nameservers de delegación al crear nueva hosted zone
+```
+
+### Component 7: VPN Module (`aws-cli/vpn/`)
+
+**Recursos creados:**
+
+1. Customer Gateway (ipsec.1, IP y ASN desde env.properties — placeholders)
+2. Virtual Private Gateway (ipsec.1) — attached a VPC
+3. VPN Connection (ipsec.1, asocia CGW + VGW)
+4. Route Propagation en route tables privadas
+
+**Warning:** Emite advertencia cuando VPN_CUSTOMER_IP es 0.0.0.0 (placeholder).
+
+### Component 8: WAF Module (`aws-cli/waf/`)
+
+- Scope: REGIONAL
+- Default action: Allow
+- Regla: Rate-based, límite WAF_RATE_LIMIT (2000 req/5min por IP), action Block
+- Asociación: Al ALB del ambiente (si existe, sino skip informativo)
+
+### Component 9: Security Groups Module (`aws-cli/security-groups/`)
+
+**ALB SG:**
+- Revoca egress `0.0.0.0/0` all-traffic (IpProtocol=-1)
+- Agrega egress TCP → ECS SG en CONTAINER_PORT
+
+**ECS SG:**
+- Revoca egress `0.0.0.0/0` all-traffic
+- Agrega egress TCP → 0.0.0.0/0:443 (AWS service endpoints)
+
+**Idempotencia:** Verifica cada regla individual antes de modificar.
+
+### Component 10: ACM Module (`aws-cli/acm/`)
+
+- Importa certificado desde `environments/{env}/certs/` (certificate.pem, private-key.pem, certificate-chain.pem)
+- Verifica existencia por dominio antes de importar
+- Aplica tags estándar
+
+### Component 11: SSM Module (`aws-cli/ssm/`)
+
+- Lee `environments/{env}/secrets/secrets.txt` parseando bloques key/value con JSON
+- Crea parámetros bajo `/multicines/integrator/{env}/`
+- Tipo: SecureString para JSONs, String para OTEL_TRACES_EXPORTER (fijo: "otlp")
+- Compacta JSON con python3 antes de almacenar
+
+### Component 12: Secrets Manager Module (`aws-cli/secrets/`)
+
+- Lee `environments/{env}/secrets/secrets.txt` (mismo formato que SSM)
+- Nombre del secreto = key completa del archivo (ej: `platform/dev/resilience`)
+- Aplica tags estándar
+
+### Component 13: Validate Environment (`aws-cli/validate-env.sh`)
+
+Verifica existencia de recursos pre-existentes referenciados en env.properties:
+- VPC, Public/Private Subnets, ALB/ECS Security Groups
+- Log Group, ECS Cluster, ECR Repository
+- IAM Roles (Execution + Task)
+
+Reporta también estado de recursos a crear (ALB, TG, WAF, ACM, ECS Service).
+
+### Component 14: Documentation Pipeline
+
+**`convert-manual.sh`:**
+- Verifica Pandoc disponible
+- Convierte "Insumos iniciales/Manual para multicines.docx" → `documents/manual-original.md`
+- Extrae imágenes a `documents/images/`
+
+**`build-manual.sh`:**
+- Verifica que `manual-original.md` exista (requiere convert-manual.sh previo)
+- Concatena: manual-original.md + sections/*.md → manual-multicines.md
+- Exporta a DOCX con `--resource-path` para resolver imágenes
+
+### Component 15: GitHub Actions CI/CD
+
+**Arquitectura de workflows (en repositorio Capa-Media):**
+
+| Workflow | Trigger | Ambiente |
+|----------|---------|----------|
+| `deploy-dev.yml` | push a `dev`, workflow_dispatch | development |
+| `deploy-prod.yml` | push a `main`, workflow_dispatch | production |
+
+**Pipeline de cada workflow:**
+
+```
+1. Checkout code
+2. Configure AWS credentials (OIDC: role-to-assume)
+3. Login to Amazon ECR
+4. Extract version from pom.xml
+5. Build Docker image, tag con {env}-{short_sha} y {version}-{short_sha}
+6. Push image to ECR
+7. Get current task definition (para rollback)
+8. Download task definition actual
+9. Render nueva imagen en task definition
+10. Deploy to ECS (wait-for-service-stability: true, 10 min timeout)
+11. [On failure] Rollback: restore previous TD + force-new-deployment + wait stable
+12. Verify deployment: confirmar tareas RUNNING
+```
+
+**Permisos:** `id-token: write` (OIDC), `contents: read`  
+**Autenticación:** `aws-actions/configure-aws-credentials@v4` con `role-to-assume`  
+**Image tags:** `{env}-{GITHUB_SHA::16}` y `{version}-{GITHUB_SHA::16}`
 
 ## Data Models
 
-### Environment Configuration Map
+### Environment Properties (env.properties)
+
+```properties
+# Formato: key=value (sourced por bash)
+APP_NAME=multicines-integration
+PROJECT_NAME=multicines
+AWS_ACCOUNT=340271092920
+AWS_REGION=us-east-1
+VPC_ID=vpc-0a5ebea8e7bee9ed5
+# ... (todas las variables de infraestructura)
+```
+
+### Naming Convention
+
+```
+Patrón: {env}-{app_name}-{resource_type}
+
+Ejemplos:
+  dev-multicines-integration-alb      (ALB)
+  dev-multicines-integration-tg       (Target Group)
+  dev-multicines-integration-svc      (ECS Service)
+  dev-multicines-integration-task     (Task Definition family)
+  dev-multicines-integration-waf      (WAF Web ACL)
+  dev-multicines-integration-vpn      (VPN Connection)
+  dev-multicines-integration-vgw      (Virtual Private Gateway)
+  dev-multicines-integration-cgw      (Customer Gateway)
+  dev-multicines-integration-acm      (ACM Certificate)
+```
+
+### Tags Structure
 
 ```bash
-# Lookup tables in common.sh provide environment-specific resource IDs
-# Key: environment name (dev|prod)
-# Value: AWS resource ID
+# get_tags (Key=Value) — para ALB, ACM, SSM, Secrets, WAF
+Key=Name,Value={name} Key=Project,Value={project} Key=Environment,Value={env} Key=Service,Value={app}
 
-VPC_IDS[dev]="vpc-0a5ebea8e7bee9ed5"
-VPC_IDS[prod]="vpc-0860a0d2cf4df6140"
+# get_ecs_tags (key=value lowercase) — para ECS
+key=Name,value={name} key=Project,value={project} key=Environment,value={env} key=Service,value={app}
 
-PUBLIC_SUBNETS[dev]="subnet-0c92479c2831f04eb,subnet-02193c97ceb6ec25d"
-PUBLIC_SUBNETS[prod]="subnet-04e4cd18763fd6f84,subnet-05c92a4889326c68e"
-
-PRIVATE_SUBNETS[dev]="subnet-0eeec60453f7f9492"
-PRIVATE_SUBNETS[prod]="subnet-0d55ebfe5adbd4e81,subnet-04f8ac3335c426f57"
-```
-
-### Naming Convention Pattern
-
-```
-Pattern: {env}-{resource}-{type}-{zone}
-Examples:
-  dev-alb-application        (no zone)
-  prod-alb-application       (no zone)
-  dev-tg-integration-8095    (with port as zone)
-  dev-waf-webacl             (no zone)
-  prod-vpn-connection        (no zone)
-  dev-cgw-customer           (no zone)
-  dev-vgw-gateway            (no zone)
+# get_tag_spec (JSON-like) — para EC2/VPN tag-specifications
+{Key=Name,Value={name}},{Key=Project,Value={project}},{Key=Environment,Value={env}},{Key=Service,Value={app}}
 ```
 
 ### SSM Parameter Hierarchy
 
 ```
-/multicines/integrator/{env}/app          → {"vista.base-url": "https://..."}
-/multicines/integrator/{env}/resilience   → {resilience4j config JSON}
+/multicines/integrator/{env}/{param_name}    → SecureString (JSON compactado)
+/multicines/integrator/{env}/OTEL_TRACES_EXPORTER → String "otlp"
 ```
 
-### Secrets Manager Structure
+### Route53 DNS Pattern
 
 ```
-Secret Name: {env}-multicines-integration-secrets
-Secret Value: JSON with application secrets (placeholder values)
+Wildcard Domain (env.properties):  *.test.multicines.com.ec
+Base Domain (derivado):            test.multicines.com.ec
+ALB Record:                        {env}-integration.{base_domain}
+Ejemplo:                           dev-integration.test.multicines.com.ec
 ```
 
 ## Error Handling
 
-| Scenario | Behavior |
-|----------|----------|
-| Invalid environment parameter | `validate_env` prints error and exits with code 1 |
-| AWS CLI command fails | Script captures exit code, logs error, exits with non-zero code |
-| Resource already exists | Script logs skip message and continues to next resource |
-| Network/API timeout | AWS CLI retries (default behavior), eventual failure triggers error path |
-| Missing dependency (e.g., ALB ARN for ECS) | Orchestrator stops at failing script; user must run dependencies first |
-| Pandoc not installed | Script checks for pandoc availability, exits with descriptive error |
-
-## Testing Strategy
-
-**Unit/Property Tests (Shell — using bats-core):**
-- `generate_name` function: property-based testing with arbitrary (env, resource, type, zone) inputs
-- Idempotency logic: mock AWS CLI responses to verify check-before-create pattern
-- Orchestrator ordering: parse script to verify dependency chain
-
-**Integration Tests (against real AWS):**
-- Each service script run against a sandbox/dev account
-- Verify resources exist with correct configuration post-execution
-- Run scripts twice to confirm idempotency (no errors on re-run)
-
-**Smoke Tests:**
-- File structure validation (scripts exist at expected paths)
-- Pandoc availability and version check
-- Manual output file generation
-
-**Documentation Tests:**
-- Verify all resource types have corresponding sections in assembled manual
-- Verify image references resolve to existing files in `documents/images/`
+| Patrón | Implementación |
+|--------|----------------|
+| `set -euo pipefail` | Todos los scripts — falla inmediata ante errores no controlados |
+| `require_resource` | Fail-fast: valida dependencias al inicio, exit 1 con hint del script a ejecutar |
+| `check_exists` | Idempotencia: evalúa describe/list antes de crear |
+| Logging estructurado | [INFO], [ERROR], [SKIP], [CREATED], [UPDATED], [DELETED] con timestamp |
+| Exit codes | Non-zero en cualquier falla de creación/actualización |
+| DRAINING state | ECS create.sh espera en loop si servicio está en DRAINING |
+| Confirmación destructiva | delete-all.sh requiere "yes" explícito |
+| Rollback CI/CD | GitHub Actions restaura TD anterior + force-new-deployment en fallo |
 
 ## Correctness Properties
 
-*A property is a characteristic or behavior that should hold true across all valid executions of a system — essentially, a formal statement about what the system should do. Properties serve as the bridge between human-readable specifications and machine-verifiable correctness guarantees.*
+### Property 1: load_env produce nombres derivados consistentes
 
-### Property 1: Naming function produces correct pattern
+*Para cualquier* ambiente válido (`dev`|`prod`) y *para cualquier* valor de APP_NAME en env.properties, la función `load_env` SHALL derivar todos los nombres de recursos siguiendo el patrón `{env}-{app_name}-{tipo}` donde tipo es uno de: alb, tg, svc, task, waf, vpn, vgw, cgw, acm.
 
-*For any* valid combination of environment (`dev`|`prod`), resource name, type, and optional zone, the `generate_name` function SHALL produce a string matching the pattern `{env}-{resource}-{type}` when zone is empty, or `{env}-{resource}-{type}-{zone}` when zone is provided, with exactly the correct number of hyphen-separated segments.
+**Valida: Requisitos 2.4, 2.5, 13.2**
 
-**Validates: Requirements 1.5, 1.6**
+### Property 2: Idempotencia — recursos existentes no se recrean
 
-### Property 2: Script idempotency — existing resources are not recreated
+*Para cualquier* módulo de servicio y *para cualquier* recurso que ya existe en la cuenta AWS, ejecutar el script SHALL no invocar un comando `create` para ese recurso, y SHALL emitir un mensaje `[SKIP]`.
 
-*For any* service script and *for any* resource that already exists in the AWS account, executing the script SHALL not invoke a `create` command for that resource, and SHALL emit a skip/already-exists log message.
+**Valida: Requisitos 3.1, 3.2, 3.3**
 
-**Validates: Requirements 2.1, 2.2, 2.3, 7.3, 8.3**
+### Property 3: Orquestador respeta orden de dependencias
 
-### Property 3: Orchestrator respects dependency ordering
+*Para cualquier* par de módulos (A, B) donde B depende de un recurso creado por A, el orquestador `create-all.sh` SHALL invocar A antes que B en la secuencia de ejecución.
 
-*For any* pair of scripts (A, B) where B depends on a resource created by A, the orchestrator SHALL invoke A before B in the execution sequence.
+**Valida: Requisitos 1.3, 1.4, 1.5**
 
-**Validates: Requirements 1.2**
+### Property 4: require_resource detiene ejecución ante dependencia faltante
 
-### Property 4: Document image reference preservation
+*Para cualquier* script que valida dependencias, si un recurso requerido no existe, `require_resource` SHALL emitir un mensaje de error con el nombre del recurso faltante y SHALL terminar la ejecución con exit code 1.
 
-*For any* image embedded in the source DOCX, the converted Markdown SHALL contain a reference to that image pointing to the `documents/images/` path, and the exported DOCX SHALL embed or reference the same image.
+**Valida: Requisito 3.8**
 
-**Validates: Requirements 11.3, 13.3**
+### Property 5: Tags aplicados consistentemente en 3 formatos
 
-### Property 5: Manual section completeness for provisioned resources
+*Para cualquier* recurso creado, los tags SHALL incluir Name, Project, Environment y Service, formateados con `get_tags` (Key=Value), `get_ecs_tags` (key=value) o `get_tag_spec` (JSON-like) según el servicio AWS.
 
-*For any* resource type that has a creation script in the `scripts/` directory, the assembled manual SHALL contain a corresponding documentation section describing that resource type.
+**Valida: Requisitos 13.1, 13.2, 13.3, 13.4, 13.5, 13.6**
 
-**Validates: Requirements 12.1**
+### Property 6: CI/CD rollback preserva estabilidad
+
+*Para cualquier* despliegue fallido en GitHub Actions, el workflow SHALL restaurar la task definition anterior mediante `update-service` con `--force-new-deployment` y SHALL esperar estabilidad del servicio con `aws ecs wait services-stable`.
+
+**Valida: Requisito 15.6**

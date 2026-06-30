@@ -17,6 +17,7 @@ MODULES=(
  "security-groups/update.sh"
  "waf/update.sh"
  "ecs/update.sh"
+ "observability/update.sh"
  "acm/update.sh"
 )
 

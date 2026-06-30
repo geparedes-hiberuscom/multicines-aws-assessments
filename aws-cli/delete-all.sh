@@ -26,6 +26,7 @@ log_info "=== Deleting infrastructure for: $ENV ==="
 
 MODULES=(
  "vpn/delete.sh"
+ "observability/delete.sh"
  "ecs/delete.sh"
  "secrets/delete.sh"
  "ssm/delete.sh"

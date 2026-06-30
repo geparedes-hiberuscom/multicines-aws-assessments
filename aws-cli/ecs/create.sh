@@ -39,6 +39,41 @@ require_resource "Log Group $LOG_GROUP" \
 log_info "Provisioning ECS for $ENV (CPU:$ECS_CPU Mem:$ECS_MEMORY Count:$ECS_DESIRED_COUNT)"
 
 # === 1. Register Task Definition ===
+
+# Build main container environment variables (OTEL extras when tracing enabled)
+OTEL_EXTRA_ENV=""
+if [ "${OTEL_TRACES_EXPORTER}" == "otlp" ]; then
+  OTEL_EXTRA_ENV=",
+   {\"name\": \"OTEL_SERVICE_NAME\", \"value\": \"${OTEL_SERVICE_NAME}\"},
+   {\"name\": \"OTEL_EXPORTER_OTLP_ENDPOINT\", \"value\": \"http://localhost:4317\"},
+   {\"name\": \"OTEL_EXPORTER_OTLP_PROTOCOL\", \"value\": \"grpc\"},
+   {\"name\": \"OTEL_TRACES_SAMPLER\", \"value\": \"${OTEL_TRACES_SAMPLER}\"},
+   {\"name\": \"OTEL_TRACES_SAMPLER_ARG\", \"value\": \"${OTEL_TRACES_SAMPLER_ARG}\"}"
+fi
+
+# Build sidecar container JSON if OTEL tracing is enabled
+OTEL_SIDECAR_JSON=""
+if [ "${OTEL_TRACES_EXPORTER}" == "otlp" ]; then
+  OTEL_SIDECAR_JSON=$(cat <<EOF
+,{
+ "name": "aws-otel-collector",
+ "image": "public.ecr.aws/aws-observability/aws-otel-collector:latest",
+ "essential": false,
+ "memory": 256,
+ "portMappings": [{"containerPort": 4317, "protocol": "tcp"}],
+ "logConfiguration": {
+ "logDriver": "awslogs",
+ "options": {
+ "awslogs-group": "${LOG_GROUP}",
+ "awslogs-region": "${AWS_REGION}",
+ "awslogs-stream-prefix": "otel"
+ }
+ }
+}
+EOF
+)
+fi
+
 TASK_DEF_JSON=$(cat <<EOF
 {
  "family": "${TASK_DEF_FAMILY}",
@@ -58,7 +93,7 @@ TASK_DEF_JSON=$(cat <<EOF
    {"name": "AWS_REGION", "value": "${AWS_REGION}"},
    {"name": "OTEL_LOGS_EXPORTER", "value": "${OTEL_LOGS_EXPORTER}"},
    {"name": "OTEL_METRICS_EXPORTER", "value": "${OTEL_METRICS_EXPORTER}"},
-   {"name": "OTEL_TRACES_EXPORTER", "value": "${OTEL_TRACES_EXPORTER}"}
+   {"name": "OTEL_TRACES_EXPORTER", "value": "${OTEL_TRACES_EXPORTER}"}${OTEL_EXTRA_ENV}
  ],
  "logConfiguration": {
  "logDriver": "awslogs",
@@ -68,7 +103,7 @@ TASK_DEF_JSON=$(cat <<EOF
  "awslogs-stream-prefix": "api"
  }
  }
- }]
+ }${OTEL_SIDECAR_JSON}]
 }
 EOF
 )

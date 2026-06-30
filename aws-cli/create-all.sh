@@ -20,6 +20,7 @@ MODULES=(
  "ssm/create.sh"
  "secrets/create.sh"
  "ecs/create.sh"
+ "observability/create.sh"
  "vpn/create.sh"
 )
 

@@ -25,7 +25,9 @@ require_resource "VPC $VPC_ID" \
 
 log_info "Provisioning VPN for $ENV (IP: $VPN_CUSTOMER_IP, ASN: $VPN_BGP_ASN)"
 if [ "$VPN_CUSTOMER_IP" == "0.0.0.0" ]; then
- log_info " PLACEHOLDER IP update environments/$ENV/env.properties before production!"
+ log_error "VPN_CUSTOMER_IP is placeholder (0.0.0.0). Update environments/$ENV/env.properties with a real IP before executing."
+ log_info "Skipping VPN creation — no valid Customer Gateway IP configured."
+ exit 0
 fi
 
 # === 1. Customer Gateway ===

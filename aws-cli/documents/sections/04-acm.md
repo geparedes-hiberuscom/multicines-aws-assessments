@@ -1,44 +1,75 @@
-## ACM Certificate
+## ACM Certificate (Certificado SSL/TLS)
 
-### Descripcion
+### Descripción
 
-Se IMPORTA un certificado SSL/TLS en AWS Certificate Manager desde archivos PEM ubicados en
-environments/{env}/certs/. El certificado cubre el dominio *.test.multicines.com.ec y se
-asocia al listener HTTPS del ALB. No se solicita un certificado nuevo, se importa uno existente.
+Se importa un certificado SSL/TLS wildcard en AWS Certificate Manager para el dominio `*.test.multicines.com.ec`. Este certificado se asocia al listener HTTPS del ALB para la terminación SSL. Al ser un certificado importado (no solicitado via DNS/email), requiere renovación manual antes de su expiración.
 
-### Navegacion en Consola AWS
+### Navegación en Consola AWS
 
-1. Ingresar a la consola AWS -> cuenta 340271092920, region us-east-1
-2. Ir a Certificate Manager (ACM)
-3. Buscar el certificado por dominio: *.test.multicines.com.ec
-4. Verificar estado "Issued" y fecha de expiracion
-5. Revisar pestana "Associated resources" para confirmar asociacion con ALB
+1. Ingresar a la consola AWS → cuenta 340271092920, región us-east-1
+2. Buscar **Certificate Manager** en la barra de búsqueda
+3. En la lista de certificados buscar el dominio: `*.test.multicines.com.ec`
+4. Verificar columna **Status**: debe ser "Issued"
+5. Click en el certificado → revisar fecha de expiración y recursos asociados
 
-### Parametros de Configuracion
+> **TODO: Incluir pantalla del listado de certificados en ACM**
 
-| Parametro | Dev | Prod |
+> **TODO: Incluir pantalla del detalle del certificado mostrando dominio y expiración**
+
+### Parámetros de Configuración
+
+| Parámetro | Dev | Prod |
 |-----------|-----|------|
 | Dominio | *.test.multicines.com.ec | *.test.multicines.com.ec |
 | Tipo | Imported | Imported |
-| Origen certificado | environments/dev/certs/ | environments/prod/certs/ |
-| Archivo certificate | certificate.pem | certificate.pem |
-| Archivo private key | private-key.pem | private-key.pem |
-| Archivo chain | chain.pem | chain.pem |
-| Recurso asociado | dev-alb-integration | prod-alb-integration |
+| Tag Name | dev-multicines-integration-acm | prod-multicines-integration-acm |
+| Archivos fuente | environments/dev/certs/ | environments/prod/certs/ |
+| certificate | certificate.pem | certificate.pem |
+| private-key | private-key.pem | private-key.pem |
+| certificate-chain | certificate-chain.pem | certificate-chain.pem |
+| Recurso asociado | ALB listener HTTPS:443 | ALB listener HTTPS:443 |
+| Región | us-east-1 | us-east-1 |
 
-### Verificacion Post-Configuracion
+### Importación paso a paso (Consola Web)
 
-1. En ACM verificar que el certificado tenga estado "Issued"
-2. Verificar que la fecha de expiracion sea futura
-3. Confirmar el dominio del certificado: *.test.multicines.com.ec
-4. Verificar en el ALB listener 443 que el certificado este asociado
-5. Probar: `openssl s_client -connect {alb-dns}:443 -servername integration.test.multicines.com.ec`
+1. Certificate Manager → **Import certificate**
+2. En **Certificate body**: pegar contenido de `certificate.pem`
+3. En **Certificate private key**: pegar contenido de `private-key.pem`
+4. En **Certificate chain**: pegar contenido de `certificate-chain.pem`
+5. Click **Next** → agregar tags: Name=`{env}-multicines-integration-acm`, Project=multicines, Environment=`{env}`
+6. Click **Import**
 
-### Troubleshooting Comun
+> **TODO: Incluir pantalla del formulario de importación de certificado**
 
-| Problema | Causa | Solucion |
+### Importación via CLI (script `acm/create.sh`)
+
+```bash
+./aws-cli/acm/create.sh dev
+```
+
+El script verifica si ya existe un certificado para el dominio antes de importar. Si existe, emite `[SKIP]`.
+
+### Verificación Post-Configuración
+
+1. En ACM verificar que el certificado tenga estado **"Issued"**
+2. Verificar que la fecha de expiración sea futura (renovar al menos 30 días antes)
+3. En EC2 → Load Balancers → Listener HTTPS:443 → verificar certificado asociado
+4. Probar: `openssl s_client -connect {alb-dns}:443 -servername dev-integration.test.multicines.com.ec`
+
+### Renovación del Certificado
+
+Al ser un certificado importado, AWS **no lo renueva automáticamente**. El proceso de renovación es:
+
+1. Obtener nuevo certificado del proveedor SSL
+2. Colocar archivos actualizados en `environments/{env}/certs/`
+3. Ejecutar: `./aws-cli/acm/update.sh {env}` (re-importa el certificado manteniendo el mismo ARN)
+4. No requiere re-asociar al ALB — el ARN no cambia
+
+### Troubleshooting
+
+| Problema | Causa | Solución |
 |----------|-------|----------|
-| Error al importar | Formato PEM incorrecto o chain incompleta | Verificar que los archivos esten en formato PEM valido |
-| Certificado expirado | No se renovo a tiempo | Importar un certificado nuevo con fecha vigente |
-| ERR_CERT_AUTHORITY_INVALID | Chain de certificados incompleta | Incluir toda la cadena intermedia en chain.pem |
-| No se asocia al ALB | Region incorrecta | Importar en us-east-1 (misma region del ALB) |
+| Error al importar | Formato PEM incorrecto o chain incompleta | Verificar formato PEM y que la chain incluya certificados intermedios |
+| Certificado expirado | No se renovó a tiempo | Importar certificado nuevo con `acm/update.sh` |
+| ERR_CERT_AUTHORITY_INVALID | Chain incompleta | Incluir toda la cadena intermedia en certificate-chain.pem |
+| No se asocia al ALB | Región incorrecta | El certificado debe estar en us-east-1 (misma región del ALB) |

@@ -11,7 +11,7 @@ ENV="${1:?Usage: $0 <dev|prod>}"
 load_env "$ENV"
 
 BASE_DOMAIN=$(echo "$DOMAIN" | sed 's/^\*\.//')
-ALB_RECORD="api.${BASE_DOMAIN}"
+ALB_RECORD="${ENV}-integration.${BASE_DOMAIN}"
 # ALB_NAME from env.properties
 
 log_info "Deleting Route 53 resources for $ENV"

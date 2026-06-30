@@ -1,44 +1,64 @@
 ## Secrets Manager
 
-### Descripcion
+### Descripción
 
-Se CREAN secretos en AWS Secrets Manager desde el archivo environments/{env}/secrets/secrets.txt.
-Cada KEY del archivo se convierte en un secreto independiente cuyo nombre es la key misma.
-El valor se almacena como texto plano cifrado. Se usan para credenciales sensibles que
-requieren rotacion automatica (BD, APIs externas).
+Se crean secretos en AWS Secrets Manager para almacenar credenciales sensibles separadas por ambiente. Los valores se leen del archivo `environments/{env}/secrets/secrets.txt` con formato key/value JSON. El nombre de cada secreto corresponde a la key completa del archivo. El JSON se compacta antes de almacenar. Los secretos son consumidos por la Task Definition de ECS para credenciales de bases de datos y APIs externas.
 
-### Navegacion en Consola AWS
+### Navegación en Consola AWS
 
-1. Ingresar a la consola AWS -> cuenta 340271092920, region us-east-1
-2. Ir a Secrets Manager
-3. Buscar secretos por prefijo: {env}/integration/
-4. Seleccionar un secreto para ver su valor y metadata
-5. Revisar pestana "Versions" para historial de cambios
+1. Ingresar a la consola AWS → cuenta 340271092920, región us-east-1
+2. Buscar **Secrets Manager** en la barra de búsqueda
+3. En la lista de secretos buscar por nombre del secreto
+4. Click en un secreto → pestaña **Secret value** → **Retrieve secret value**
+5. Pestaña **Versions** para ver historial de cambios
 
-### Parametros de Configuracion
+> **TODO: Incluir pantalla del listado de secretos en Secrets Manager**
 
-| Parametro | Dev | Prod |
+> **TODO: Incluir pantalla del detalle de un secreto mostrando "Retrieve secret value"**
+
+### Parámetros de Configuración
+
+| Parámetro | Dev | Prod |
 |-----------|-----|------|
-| Prefijo nombre | dev/integration/ | prod/integration/ |
-| Origen datos | environments/dev/secrets/secrets.txt | environments/prod/secrets/secrets.txt |
-| Nombre del secreto | {KEY} del archivo secrets.txt | {KEY} del archivo secrets.txt |
-| Tipo valor | PlainText | PlainText |
+| Archivo fuente | environments/dev/secrets/secrets.txt | environments/prod/secrets/secrets.txt |
+| Nombre del secreto | key completa del archivo | key completa del archivo |
+| Tipo valor | JSON compactado | JSON compactado |
 | Cifrado | KMS default (aws/secretsmanager) | KMS default (aws/secretsmanager) |
-| Formato archivo | KEY=VALUE por linea | KEY=VALUE por linea |
+| Tags | Name, Project, Environment, Service | Name, Project, Environment, Service |
 
-### Verificacion Post-Configuracion
+### Creación paso a paso (Consola Web)
 
-1. En Secrets Manager verificar que existan todos los secretos del archivo
-2. Validar con CLI: `aws secretsmanager get-secret-value --secret-id "{env}/integration/{KEY}"`
-3. Confirmar que la cantidad de secretos coincida con las lineas del archivo secrets.txt
-4. Verificar que el task definition de ECS referencia los secretos correctamente
-5. Revisar que el encryption key sea la esperada
+1. Secrets Manager → **Store a new secret**
+2. Secret type: **Other type of secret**
+3. Key/value: seleccionar **Plaintext** y pegar el JSON compactado
+4. Encryption key: usar default `aws/secretsmanager`
+5. Click **Next**
+6. Secret name: escribir la key del archivo (ej: `platform/dev/resilience`)
+7. Tags: Name={key}, Project=multicines, Environment={env}, Service=multicines-integration
+8. Click **Next** → Skip rotation → **Store**
 
-### Troubleshooting Comun
+> **TODO: Incluir pantalla del wizard de creación de secreto paso 1 (tipo y valor)**
 
-| Problema | Causa | Solucion |
+### Creación via CLI (script `secrets/create.sh`)
+
+```bash
+./aws-cli/secrets/create.sh dev
+```
+
+El script parsea `secrets.txt`, verifica existencia con `describe-secret` y crea idempotentemente.
+
+### Verificación Post-Configuración
+
+1. Verificar que existan todos los secretos esperados del archivo
+2. Click en cada secreto → **Retrieve secret value** → confirmar JSON válido
+3. Validar con CLI: `aws secretsmanager get-secret-value --secret-id "{key}"`
+4. Confirmar que la task definition referencia los secretos correctamente
+
+### Troubleshooting
+
+| Problema | Causa | Solución |
 |----------|-------|----------|
-| Secreto no encontrado | Nombre incorrecto en task definition | Verificar nombre exacto del secreto (es case-sensitive) |
-| AccessDeniedException | ECS task role sin permisos | Agregar politica secretsmanager:GetSecretValue al execution role |
-| Valor vacio | Linea mal formateada en secrets.txt | Verificar formato KEY=VALUE sin espacios extras |
-| ResourceNotFoundException | Secreto eliminado o region incorrecta | Recrear secreto o verificar region us-east-1 |
+| Secreto no encontrado | Nombre incorrecto (es case-sensitive) | Verificar nombre exacto como aparece en secrets.txt |
+| AccessDeniedException | Execution role sin permisos | Agregar secretsmanager:GetSecretValue al ecsTaskExecutionRole |
+| Valor vacío | Línea mal formateada en secrets.txt | Verificar formato y re-ejecutar script |
+| ResourceNotFoundException | Secreto eliminado o región incorrecta | Recrear secreto o verificar región us-east-1 |

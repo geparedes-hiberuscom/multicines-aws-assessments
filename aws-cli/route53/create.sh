@@ -13,8 +13,8 @@ load_env "$ENV"
 
 # Extract base domain from wildcard (*.test.multicines.com.ec -> test.multicines.com.ec)
 BASE_DOMAIN=$(echo "$DOMAIN" | sed 's/^\*\.//')
-# Subdomain for the ALB record (e.g., api.test.multicines.com.ec)
-ALB_RECORD="api.${BASE_DOMAIN}"
+# Subdomain for the ALB record (e.g., dev-integration.test.multicines.com.ec)
+ALB_RECORD="${ENV}-integration.${BASE_DOMAIN}"
 # ALB_NAME from env.properties
 
 log_info "Provisioning Route 53 for $ENV (domain: $BASE_DOMAIN)"
