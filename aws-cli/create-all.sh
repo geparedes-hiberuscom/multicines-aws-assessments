@@ -11,13 +11,11 @@ load_env "$ENV"
 
 log_info "=== Creating all infrastructure for: $ENV ==="
 
+# === Phase 1: Environment-specific resources ===
 MODULES=(
  "acm/create.sh"
- "waf/create.sh"
- "security-groups/create.sh"
  "alb/create.sh"
- "route53/create.sh"
- "ssm/create.sh"
+ "route53/create-record.sh"
  "secrets/create.sh"
  "ecs/create.sh"
  "observability/create.sh"

@@ -28,7 +28,18 @@ if [ -z "$CERT_ARN" ] || [ "$CERT_ARN" == "None" ]; then
   exit 1
 fi
 
-log_info "ACM certificate found: $CERT_ARN"
+# Verify certificate is ISSUED (not PENDING_VALIDATION)
+CERT_STATUS=$(aws acm describe-certificate --certificate-arn "$CERT_ARN" \
+  --region "$AWS_REGION" --query "Certificate.Status" --output text 2>/dev/null || true)
+
+if [ "$CERT_STATUS" != "ISSUED" ]; then
+  log_error "ACM certificate exists but status is: $CERT_STATUS"
+  log_error "Certificate must be ISSUED before creating ALB listeners."
+  log_error "If PENDING_VALIDATION: verify DNS CNAME record exists and wait for validation."
+  exit 1
+fi
+
+log_info "ACM certificate found: $CERT_ARN (status: $CERT_STATUS)"
 
 # === Resource names from env.properties ===
 TG_NAME="${ECS_TG_NAME}"

@@ -24,16 +24,14 @@ fi
 
 log_info "=== Deleting infrastructure for: $ENV ==="
 
+# === Phase 1: Environment-specific resources (reverse order) ===
 MODULES=(
  "vpn/delete.sh"
  "observability/delete.sh"
  "ecs/delete.sh"
  "secrets/delete.sh"
- "ssm/delete.sh"
- "route53/delete.sh"
+ "route53/delete-record.sh"
  "alb/delete.sh"
- "security-groups/delete.sh"
- "waf/delete.sh"
  "acm/delete.sh"
 )
 
@@ -41,5 +39,9 @@ for module in "${MODULES[@]}"; do
  log_info "--- $module ---"
  "${SCRIPT_DIR}/${module}" "$ENV" || log_error "$module failed. Continuing..."
 done
+
+# === Phase 2: Shared resources (only delete zone if empty) ===
+log_info "--- route53/delete-zone.sh (shared — only if empty) ---"
+"${SCRIPT_DIR}/route53/delete-zone.sh" || log_error "route53/delete-zone.sh failed or zone not empty."
 
 log_info "=== Deletion complete for $ENV ==="

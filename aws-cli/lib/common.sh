@@ -123,6 +123,12 @@ get_tags() {
   echo "Key=Name,Value=${name}" "Key=Project,Value=${PROJECT_NAME}" "Key=Environment,Value=${ENV}" "Key=Service,Value=${APP_NAME}"
 }
 
+# Shared resource tags (Environment=shared) - for resources shared across environments (ACM, Route53)
+get_shared_tags() {
+  local name="$1"
+  echo "Key=Name,Value=${name}" "Key=Project,Value=${PROJECT_NAME}" "Key=Environment,Value=shared" "Key=Service,Value=${APP_NAME}"
+}
+
 # ECS tags (lowercase) - for task definitions and services
 get_ecs_tags() {
   local name="$1"
