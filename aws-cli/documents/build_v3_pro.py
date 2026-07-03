@@ -13,7 +13,7 @@ from docx.enum.table import WD_TABLE_ALIGNMENT
 import os, shutil
 
 BASE_DIR = os.path.dirname(__file__)
-SOURCE = os.path.join(BASE_DIR, "Manual Multicines v2.docx")
+SOURCE = os.path.join(BASE_DIR, "..", "..", "Insumos iniciales", "Manual para multicines.docx")
 OUTPUT = os.path.join(BASE_DIR, "Manual Multicines v3.docx")
 IMAGES = os.path.join(BASE_DIR, "images", "media")
 
@@ -152,6 +152,61 @@ table(["Parámetro", "Valor"], [
     ["Certificado", "*.cloudmulticines.com (ISSUED)"],
     ["ECS Cluster", "multicines-cluster"],
     ["ECR", "multicines/integration-service"],
+])
+
+h2("1.4 Inventario de Recursos Existentes")
+h3("Recursos Compartidos (shared)")
+table(["Servicio", "Recurso", "ID/Nombre"], [
+    ["Route53", "Hosted Zone", "cloudmulticines.com (Z02656981PPWUEVYOEMVL)"],
+    ["ACM", "Certificado SSL", "*.cloudmulticines.com (ISSUED)"],
+    ["ECR", "Repositorio", "multicines/integration-service"],
+    ["ECS", "Cluster", "multicines-cluster"],
+    ["IAM", "Execution Role", "ecsTaskExecutionRole"],
+    ["IAM", "Task Role", "multicines-ecs-task-role"],
+    ["IAM", "GitHub Actions Role", "multicines-github-actions-role"],
+    ["EC2", "Customer Gateway", "cgw-090efcb086447cd1a (IP: 200.7.217.58)"],
+])
+h3("Ambiente Dev")
+table(["Servicio", "Recurso", "ID/Nombre"], [
+    ["VPC", "VPC", "vpc-0a5ebea8e7bee9ed5"],
+    ["VPC", "Subnet pública A", "subnet-0c92479c2831f04eb"],
+    ["VPC", "Subnet pública B", "subnet-02193c97ceb6ec25d"],
+    ["VPC", "Subnet privada", "subnet-0eeec60453f7f9492"],
+    ["EC2", "SG ALB", "sg-0fdf0c744482646ae"],
+    ["EC2", "SG ECS", "sg-01c619444bab0b8d3"],
+    ["ALB", "Load Balancer", "dev-multicines-integration-alb"],
+    ["ALB", "Target Group", "dev-multicines-integration-tg (port 8095)"],
+    ["Route53", "Record A", "api-dev.cloudmulticines.com → ALB dev"],
+    ["ECS", "Service", "dev-multicines-integration-svc (1 task)"],
+    ["ECS", "Task Definition", "dev-multicines-integration-task"],
+    ["Secrets", "Secret", "platform/dev/resilience"],
+    ["Secrets", "Secret", "integrator/dev/app"],
+    ["SNS", "Topic", "dev-multicines-integration-alarms"],
+    ["CloudWatch", "Dashboard", "dev-multicines-integration-dashboard"],
+    ["CloudWatch", "Alarms", "7 alarmas (cpu, memory, 5xx, 4xx, unhealthy, response-time, tasks)"],
+    ["VPN", "Connection", "vpn-08add07f10aaf549d (dev-multicines-integration-vpn)"],
+    ["VPN", "Virtual Private GW", "vgw-0d4a9bbfacc384bdc (dev-multicines-integration-vgw)"],
+])
+h3("Ambiente Prod")
+table(["Servicio", "Recurso", "ID/Nombre"], [
+    ["VPC", "VPC", "vpc-0860a0d2cf4df6140"],
+    ["VPC", "Subnet pública A", "subnet-04e4cd18763fd6f84"],
+    ["VPC", "Subnet pública B", "subnet-05c92a4889326c68e"],
+    ["VPC", "Subnet privada A", "subnet-0d55ebfe5adbd4e81"],
+    ["VPC", "Subnet privada B", "subnet-04f8ac3335c426f57"],
+    ["EC2", "SG ALB", "sg-04f21c4c1d065fe60"],
+    ["EC2", "SG ECS", "sg-0b78c14cd02b2f6e1"],
+    ["ALB", "Load Balancer", "prod-multicines-integration-alb"],
+    ["ALB", "Target Group", "prod-multicines-integration-tg (port 8095)"],
+    ["Route53", "Record A", "api.cloudmulticines.com → ALB prod"],
+    ["ECS", "Service", "prod-multicines-integration-svc (2 tasks)"],
+    ["ECS", "Task Definition", "prod-multicines-integration-task"],
+    ["Secrets", "Secret", "platform/prod/resilience"],
+    ["Secrets", "Secret", "integrator/prod/app"],
+    ["SNS", "Topic", "prod-multicines-integration-alarms"],
+    ["CloudWatch", "Dashboard", "prod-multicines-integration-dashboard"],
+    ["VPN", "Connection", "vpn-03ad7d548894fe350 (prod-multicines-integration-vpn)"],
+    ["VPN", "Virtual Private GW", "vgw-0954e2b1a370ae78e (prod-multicines-integration-vgw)"],
 ])
 
 # =====================================================================
@@ -702,44 +757,63 @@ aws cloudwatch delete-alarms --alarm-names <ALARM1> <ALARM2> --region us-east-1"
 # =====================================================================
 page_break()
 h1("12. VPN Site-to-Site")
-para("Estado: No creada (IP placeholder 0.0.0.0). Se creará cuando Multicines proporcione la IP del router on-premise.")
-h2("12.1 Customer Gateway")
-steps(["VPC → Customer Gateways → Create Customer Gateway", "Name: {env}-multicines-integration-cgw", "Routing: Static", "IP Address: IP del router on-premise", "BGP ASN: 65000 → Create"])
+para("Conexión VPN IPSec entre AWS y la red on-premise de Multicines (IP: 200.7.217.58). Ambos ambientes comparten el mismo Customer Gateway.")
+h2("12.1 Estado actual")
+table(["Recurso", "ID", "Nombre", "Ambiente"], [
+    ["VPN Connection", "vpn-08add07f10aaf549d", "dev-multicines-integration-vpn", "dev"],
+    ["VPN Connection", "vpn-03ad7d548894fe350", "prod-multicines-integration-vpn", "prod"],
+    ["Virtual Private GW", "vgw-0d4a9bbfacc384bdc", "dev-multicines-integration-vgw", "dev (vpc-0a5ebea8e7bee9ed5)"],
+    ["Virtual Private GW", "vgw-0954e2b1a370ae78e", "prod-multicines-integration-vgw", "prod (vpc-0860a0d2cf4df6140)"],
+    ["Customer Gateway", "cgw-090efcb086447cd1a", "cgw-multicines (IP: 200.7.217.58)", "compartido"],
+])
+h2("12.2 Customer Gateway")
+steps(["VPC → Customer Gateways → Create Customer Gateway", "Name: cgw-multicines", "Routing: Static", "IP Address: 200.7.217.58 (IP pública router Multicines)", "BGP ASN: 65000 → Create"])
 todo("Insertar pantalla de creación de Customer Gateway")
-h2("12.2 Virtual Private Gateway")
+h2("12.3 Virtual Private Gateway")
 steps(["VPC → Virtual Private Gateways → Create Virtual Private Gateway", "Name: {env}-multicines-integration-vgw → Create", "Actions → Attach to VPC → seleccionar VPC del ambiente"])
 todo("Insertar pantalla del VGW adjunto a la VPC")
-h2("12.3 VPN Connection")
-steps(["VPC → Site-to-Site VPN Connections → Create VPN Connection", "Name: {env}-multicines-integration-vpn", "Target Gateway: VGW creado", "Customer Gateway: CGW creado", "Routing: Static → Create", "Download Configuration para configurar router on-premise"])
+h2("12.4 VPN Connection")
+steps(["VPC → Site-to-Site VPN Connections → Create VPN Connection", "Name: {env}-multicines-integration-vpn", "Target Gateway: VGW creado", "Customer Gateway: cgw-multicines (cgw-090efcb086447cd1a)", "Routing: Static → Create", "Download Configuration para configurar router on-premise"])
 todo("Insertar pantalla del wizard VPN Connection")
-h2("12.4 Route Propagation")
-steps(["VPC → Route Tables → tabla privada del ambiente", "Route propagation → Edit → habilitar para VGW → Save"])
+h2("12.5 Route Propagation")
+steps(["VPC → Route Tables → tabla privada del ambiente", "Route propagation → Edit → habilitar para VGW → Save", "Verificar ruta 192.168.0.0/16 → VGW aparece en Routes"])
 todo("Insertar pantalla de route propagation")
-h2("12.5 Parámetros")
+h2("12.6 Configuración de Red")
 table(["Parámetro", "Dev", "Prod"], [
-    ["Nombre VPN", "dev-multicines-integration-vpn", "prod-multicines-integration-vpn"],
-    ["Nombre VGW", "dev-multicines-integration-vgw", "prod-multicines-integration-vgw"],
-    ["Nombre CGW", "dev-multicines-integration-cgw", "prod-multicines-integration-cgw"],
-    ["VPC", "vpc-0a5ebea8e7bee9ed5", "vpc-0860a0d2cf4df6140"],
-    ["Customer IP", "Pendiente", "Pendiente"],
+    ["VPN Connection", "vpn-08add07f10aaf549d", "vpn-03ad7d548894fe350"],
+    ["VGW", "vgw-0d4a9bbfacc384bdc", "vgw-0954e2b1a370ae78e"],
+    ["CGW", "cgw-090efcb086447cd1a (compartido)", "cgw-090efcb086447cd1a (compartido)"],
+    ["Customer IP", "200.7.217.58", "200.7.217.58"],
     ["BGP ASN", "65000", "65000"],
+    ["Ruta on-premise", "192.168.0.0/16 → VGW", "192.168.0.0/16 → VGW"],
+    ["VPC", "vpc-0a5ebea8e7bee9ed5", "vpc-0860a0d2cf4df6140"],
 ])
-cli_box("""# Crear Customer Gateway
-aws ec2 create-customer-gateway --type ipsec.1 --public-ip <IP_ROUTER> --bgp-asn 65000 \\
-  --tag-specifications 'ResourceType=customer-gateway,Tags=[{Key=Name,Value=dev-multicines-integration-cgw}]' \\
+cli_box("""# Crear Customer Gateway (compartido)
+aws ec2 create-customer-gateway --type ipsec.1 --public-ip 200.7.217.58 --bgp-asn 65000 \\
+  --tag-specifications 'ResourceType=customer-gateway,Tags=[{Key=Name,Value=cgw-multicines}]' \\
   --region us-east-1
 
-# Crear Virtual Private Gateway + attach
+# Crear Virtual Private Gateway (por ambiente)
 aws ec2 create-vpn-gateway --type ipsec.1 \\
   --tag-specifications 'ResourceType=vpn-gateway,Tags=[{Key=Name,Value=dev-multicines-integration-vgw}]' --region us-east-1
-aws ec2 attach-vpn-gateway --vpn-gateway-id <VGW_ID> --vpc-id vpc-0a5ebea8e7bee9ed5 --region us-east-1
+aws ec2 attach-vpn-gateway --vpn-gateway-id vgw-0d4a9bbfacc384bdc --vpc-id vpc-0a5ebea8e7bee9ed5 --region us-east-1
 
 # Crear VPN Connection
-aws ec2 create-vpn-connection --type ipsec.1 --customer-gateway-id <CGW_ID> --vpn-gateway-id <VGW_ID> \\
+aws ec2 create-vpn-connection --type ipsec.1 \\
+  --customer-gateway-id cgw-090efcb086447cd1a --vpn-gateway-id vgw-0d4a9bbfacc384bdc \\
   --tag-specifications 'ResourceType=vpn-connection,Tags=[{Key=Name,Value=dev-multicines-integration-vpn}]' --region us-east-1
 
-# Route propagation
-aws ec2 enable-vgw-route-propagation --gateway-id <VGW_ID> --route-table-id <RTB_ID> --region us-east-1""")
+# Habilitar route propagation
+aws ec2 enable-vgw-route-propagation --gateway-id vgw-0d4a9bbfacc384bdc \\
+  --route-table-id <RTB_PRIVATE_ID> --region us-east-1
+
+# Verificar estado de túneles
+aws ec2 describe-vpn-connections --vpn-connection-ids vpn-08add07f10aaf549d \\
+  --query "VpnConnections[0].VgwTelemetry[].{Status:Status,IP:OutsideIpAddress}" --region us-east-1
+
+# Actualizar tags
+aws ec2 create-tags --resources vpn-08add07f10aaf549d \\
+  --tags Key=Name,Value=dev-multicines-integration-vpn Key=Project,Value=multicines Key=Environment,Value=dev --region us-east-1""")
 
 # =====================================================================
 # SECTION 13: CI/CD
@@ -799,41 +873,6 @@ aws iam attach-role-policy --role-name multicines-github-actions-role \\
   --policy-arn arn:aws:iam::aws:policy/AmazonECS_FullAccess
 aws iam attach-role-policy --role-name multicines-github-actions-role \\
   --policy-arn arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryPowerUser""")
-
-# =====================================================================
-# SECTION 14: ANEXO
-# =====================================================================
-page_break()
-h1("14. Anexo — Resumen de Recursos")
-h2("Ambiente Dev")
-table(["Servicio", "Recurso", "ID/Nombre"], [
-    ["VPC", "VPC", "vpc-0a5ebea8e7bee9ed5"],
-    ["EC2", "SG ALB", "sg-0fdf0c744482646ae"],
-    ["EC2", "SG ECS", "sg-01c619444bab0b8d3"],
-    ["ALB", "Load Balancer", "dev-multicines-integration-alb"],
-    ["ALB", "Target Group", "dev-multicines-integration-tg"],
-    ["ACM", "Certificado", "*.cloudmulticines.com (shared)"],
-    ["Route53", "Record", "api-dev.cloudmulticines.com"],
-    ["ECS", "Service", "dev-multicines-integration-svc (1 task)"],
-    ["Secrets", "Secretos", "platform/dev/resilience, integrator/dev/app"],
-    ["SNS", "Topic", "dev-multicines-integration-alarms"],
-    ["CW", "Dashboard", "dev-multicines-integration-dashboard"],
-    ["CW", "Alarms", "7 alarmas activas"],
-])
-h2("Ambiente Prod")
-table(["Servicio", "Recurso", "ID/Nombre"], [
-    ["VPC", "VPC", "vpc-0860a0d2cf4df6140"],
-    ["EC2", "SG ALB", "sg-04f21c4c1d065fe60"],
-    ["EC2", "SG ECS", "sg-0b78c14cd02b2f6e1"],
-    ["ALB", "Load Balancer", "prod-multicines-integration-alb"],
-    ["ALB", "Target Group", "prod-multicines-integration-tg"],
-    ["ACM", "Certificado", "*.cloudmulticines.com (shared)"],
-    ["Route53", "Record", "api.cloudmulticines.com"],
-    ["ECS", "Service", "prod-multicines-integration-svc (2 tasks)"],
-    ["Secrets", "Secretos", "platform/prod/resilience, integrator/prod/app"],
-    ["SNS", "Topic", "prod-multicines-integration-alarms"],
-    ["CW", "Dashboard", "prod-multicines-integration-dashboard"],
-])
 
 # === SAVE ===
 doc.save(OUTPUT)
