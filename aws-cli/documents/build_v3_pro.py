@@ -1,5 +1,5 @@
 """
-Build Manual Multicines v3.docx - Professional version
+Build Manual de Gestión de Recursos en AWS v1.0.docx - Professional version
 - Copies original DOCX (keeps cover page + TOC)
 - Removes everything from "1. IntroducciÃ³n" onwards
 - Rebuilds all sections with consistent professional format
@@ -14,7 +14,7 @@ import os, shutil
 
 BASE_DIR = os.path.dirname(__file__)
 SOURCE = os.path.join(BASE_DIR, "..", "..", "Insumos iniciales", "Manual para multicines.docx")
-OUTPUT = os.path.join(BASE_DIR, "Manual Multicines v3.docx")
+OUTPUT = os.path.join(BASE_DIR, "Manual de Gestión de Recursos en AWS v1.0.docx")
 IMAGES = os.path.join(BASE_DIR, "images", "media")
 
 shutil.copy2(SOURCE, OUTPUT)

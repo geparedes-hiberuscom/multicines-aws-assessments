@@ -8,7 +8,7 @@ from docx.oxml.ns import qn, nsdecls
 from docx.oxml import parse_xml
 import os
 
-DOCX_PATH = os.path.join(os.path.dirname(__file__), "Manual Multicines v3.docx")
+DOCX_PATH = os.path.join(os.path.dirname(__file__), "Manual de Gestión de Recursos en AWS v1.0.docx")
 doc = Document(DOCX_PATH)
 body = doc.element.body
 

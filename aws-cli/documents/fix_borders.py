@@ -1,12 +1,12 @@
 """
-Add 1pt grey border to all images in Manual Multicines v3.docx
+Add 1pt grey border to all images in Manual de Gestión de Recursos en AWS v1.0.docx
 """
 from docx import Document
 from docx.oxml.ns import qn
 from docx.oxml import parse_xml
 import os
 
-DOCX_PATH = os.path.join(os.path.dirname(__file__), "Manual Multicines v3.docx")
+DOCX_PATH = os.path.join(os.path.dirname(__file__), "Manual de Gestión de Recursos en AWS v1.0.docx")
 doc = Document(DOCX_PATH)
 
 count = 0
